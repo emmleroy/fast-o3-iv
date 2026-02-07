@@ -2,7 +2,8 @@
 RIVR_dump
 
 # Data
-/data/
+data
+data_local
 
 # Mac OS-specific storage files
 .DS_Store
