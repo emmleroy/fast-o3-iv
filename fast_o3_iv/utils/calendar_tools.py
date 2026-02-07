@@ -1,8 +1,5 @@
 import cftime
-import pandas as pd
 import xarray as xr
-from xarray.coding.cftime_offsets import MonthBegin as CFMonthBegin
-
 
 def time_set_monthstart(ds, deep=False):
     """
