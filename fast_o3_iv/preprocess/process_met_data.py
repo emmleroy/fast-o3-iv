@@ -7,8 +7,8 @@ import numpy as np
 import xarray as xr
 from geocat.comp.interpolation import interp_hybrid_to_pressure
 
-from fast_o3_iv.utils import calendar_tools
-from fast_o3_iv.utils.model_configs import MODEL_CONFIG 
+from fast_o3_iv.preprocess import calendar_tools
+from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG 
 from fast_o3_iv.config import EXTERNAL_DATA_DIR, INTERIM_DATA_DIR
 
 
