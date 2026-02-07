@@ -14,6 +14,6 @@ CESM2_TO_CMIP6_MAP = {
 }
 
 MODEL_CONFIG = {
-    "CESM2-LE": {"institution_id": "NCAR", "variable_map": CESM2_TO_CMIP6_MAP},
+    "CESM2": {"institution_id": "NCAR", "variable_map": CESM2_TO_CMIP6_MAP},
     "CESM2-WACCM6": {"institution_id": "NCAR", "variable_map": CESM2_TO_CMIP6_MAP},
 }
