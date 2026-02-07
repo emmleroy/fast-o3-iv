@@ -5,6 +5,7 @@ from typing import Iterable, Optional, Sequence, Union, Dict, List
 
 import numpy as np
 import xarray as xr
+from xarray.coders import CFDatetimeCoder
 from geocat.comp.interpolation import interp_hybrid_to_pressure
 
 from fast_o3_iv.preprocess import calendar_tools
@@ -13,7 +14,7 @@ from fast_o3_iv.config import EXTERNAL_DATA_DIR, INTERIM_DATA_DIR
 
 
 @dataclass
-class PreprocessMetData:
+class ProcessMetData:
     """
     Pipeline to pre-process met variables from CESM/CMIP:
     1. Concatenate netCDF files
@@ -86,7 +87,7 @@ class PreprocessMetData:
 
     def _open_mfdataset(self, filepaths):
         """Open with xr.open_mfdataset, keep only required vars, then decode cftimes.
-        """
+        """        
         ds_raw = xr.open_mfdataset(
             filepaths,
             combine="nested",
@@ -97,7 +98,8 @@ class PreprocessMetData:
             engine="netcdf4",
         )
         ds_keep = ds_raw[self._required_vars()]
-        return xr.decode_cf(ds_keep, use_cftime=True)
+        time_coder = CFDatetimeCoder(use_cftime=True)
+        return xr.decode_cf(ds_keep, decode_times=time_coder)
 
     def _open_selected_years_and_levels(self):
         """If num files >= num years, assume we have annual files and open one by one
