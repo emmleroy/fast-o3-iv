@@ -15,8 +15,8 @@ from fast_o3_iv.config import EXTERNAL_DATA_DIR, INTERIM_DATA_DIR
 
 @dataclass
 class ProcessMetData:
-    """
-    Pipeline to pre-process met variables from CESM/CMIP:
+    """Pipeline to pre-process met variables from CESM/CMIP:
+    
     1. Concatenate netCDF files
     2. Rename variables to CMIP6 convention (if using CESM)
     3. Optionally select a vertical level (surface or interpolate to a pressure level)
@@ -34,9 +34,9 @@ class ProcessMetData:
     def __post_init__(self): 
         """Compute derived attributes ("post initialization") """
         self._model_config = MODEL_CONFIG[self.source_id]
-        self._variable_map = self._model_config.get("variable_map")
-        self._institution_id = self._model_config["institution_id"]  
-        self.var_output = self._variable_map.get(self.var_original, self.var_original)
+        self.variable_map = self._model_config.get("variable_map")
+        self.institution_id = self._model_config["institution_id"]  
+        self.var_output = self.variable_map.get(self.var_original, self.var_original)
         if self.level not in (None, "surface"):
             self.level = float(self.level) 
 
@@ -47,7 +47,7 @@ class ProcessMetData:
         """
         pattern = (
             EXTERNAL_DATA_DIR
-            / self._institution_id
+            / self.institution_id
             / self.source_id
             / self.experiment_id
             / self.variant_label
@@ -62,7 +62,7 @@ class ProcessMetData:
         """
         pattern = (
             EXTERNAL_DATA_DIR
-            / self._institution_id
+            / self.institution_id
             / self.source_id
             / self.experiment_id
             / self.variant_label
@@ -95,7 +95,7 @@ class ProcessMetData:
             compat="no_conflicts",
             data_vars="minimal",
             decode_times=False,
-            engine="netcdf4",
+            engine="h5netcdf", # important!! to avoid binary incompatibility between numpy and netCDF
         )
         ds_keep = ds_raw[self._required_vars()]
         time_coder = CFDatetimeCoder(use_cftime=True)
@@ -224,7 +224,7 @@ class ProcessMetData:
 
     def compute_and_save(self, save=True):
         out_filename = (
-            f"{self._institution_id}."
+            f"{self.institution_id}."
             f"{self.source_id}."
             f"{self.experiment_id}."
             f"{self.variant_label}."
@@ -233,7 +233,7 @@ class ProcessMetData:
         )
         out_path = (
             INTERIM_DATA_DIR
-            / self._institution_id
+            / self.institution_id
             / self.source_id
             / self.experiment_id
             / self.variant_label
