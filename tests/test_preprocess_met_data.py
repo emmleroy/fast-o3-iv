@@ -1,10 +1,11 @@
 import pytest
+
 from fast_o3_iv.preprocess.process_met_data import ProcessMetData
 from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG 
 
 
 def test_process_met_data(capsys):
-    """test that ProcessMetData.compute() works and returns expected suffix
+    """Test that ProcessMetData.compute() works and returns expected suffix
     """
 
     model = "CESM2"
@@ -25,11 +26,8 @@ def test_process_met_data(capsys):
 
     captured = capsys.readouterr().out
 
-    model_config = MODEL_CONFIG[model]
-    institution = model_config['institution_id']
-
-    variable_map = model_config['variable_map']
-    output_var = variable_map[var_original]
+    institution = pipe.institution_id
+    output_var = pipe.var_output
 
     expected_suffix = (
         f"{institution}/{model}/{scenario}/{member}/{output_var}/"
