@@ -1,43 +1,38 @@
 [build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
+requires = ["poetry-core>=1.9.0"]
+build-backend = "poetry.core.masonry.api"
 
-[project]
+[tool.poetry]
 name = "fast_o3_iv"
 version = "0.0.1"
-description = "Fast surrogate modeling of ozone internal variability"
-authors = [
-  { name = "Emmie Le Roy" },
-]
-license = { file = "LICENSE" }
+description = "Fast surrogate modeling for O3 internal variability"
+authors = ["Emmie Le Roy"]
+license = "MIT"
 readme = "README.md"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License"
-]
-dependencies = [
-    "ipython",
-    "jupyterlab",
-    "loguru",
-    "matplotlib",
-    "mkdocs",
-    "notebook",
-    "numpy",
-    "pandas",
-    "pip",
-    "pytest",
-    "python-dotenv",
-    "ruff",
-    "scikit-learn",
-    "tqdm",
-    "typer",
-    "geocat-comp (>=2026.1.0,<2027.0.0)",
-    "xarray (==2026.1.0)",
-    "netcdf4 (>=1.7.4,<2.0.0)",
-    "h5py (>=3.15.1,<4.0.0)",
-]
-requires-python = "~=3.11.0"
 
+[tool.poetry.dependencies]
+python = "~3.11.0"
+ipython = "*"
+jupyterlab = "*"
+loguru = "*"
+matplotlib = "*"
+mkdocs = "*"
+notebook = "*"
+pytest = "*"
+python-dotenv = "*"
+ruff = "*"
+tqdm = "*"
+typer = "*"
+numpy = "<2.4"
+pandas = "^3.0.0"
+xarray = "^2026.1.0"
+netCDF4 = "^1.7.4"
+h5py = "^3.15.1"
+ipykernel = "^7.2.0"
+pip = "^26.0.1"
+"geocat.comp" = "^2026.1.0"
+dask = "^2026.1.2"
+h5netcdf = "^1.8.1"
 
 [tool.ruff]
 line-length = 99
@@ -45,9 +40,8 @@ src = ["fast_o3_iv"]
 include = ["pyproject.toml", "fast_o3_iv/**/*.py"]
 
 [tool.ruff.lint]
-extend-select = ["I"]  # Add import sorting
+extend-select = ["I"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["fast_o3_iv"]
 force-sort-within-sections = true
-
