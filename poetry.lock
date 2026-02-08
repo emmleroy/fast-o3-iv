@@ -2103,7 +2103,7 @@ xarray = ">=0.12.0"
 
 [[package]]
 name = "xskillscore"
-version = "0.0.27"
+version = "0.0.28"
 description = "Metrics for verifying forecasts"
 category = "main"
 optional = false
@@ -2111,7 +2111,7 @@ python-versions = ">=3.9"
 
 [package.dependencies]
 dask = {version = ">=2023.4.0", extras = ["array"]}
-numpy = ">=1.24"
+numpy = ">=1.24,<2.4"
 properscoring = "*"
 scipy = ">=1.10"
 statsmodels = "*"
@@ -2121,7 +2121,7 @@ xhistogram = ">=0.3.2"
 [package.extras]
 accel = ["bottleneck", "numba (>=0.57)"]
 complete = ["doc8", "ipykernel", "ipython", "nbsphinx", "nbstripout", "properscoring", "pytest-sugar", "sphinx (>=6.0.0)", "sphinx-autosummary-accessors", "sphinx-copybutton", "sphinx-rtd-theme (>=1.0)", "xskillscore"]
-test = ["cftime", "matplotlib", "pre-commit", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "scikit-learn", "xskillscore"]
+test = ["cftime", "matplotlib", "packaging", "pre-commit", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "scikit-learn", "xskillscore"]
 
 [[package]]
 name = "zipp"
@@ -4167,8 +4167,8 @@ xhistogram = [
     {file = "xhistogram-0.3.2.tar.gz", hash = "sha256:56b0751e1469eaed81710f644c8ba5c574b51883baa2feee26a95f2f708f91a1"},
 ]
 xskillscore = [
-    {file = "xskillscore-0.0.27-py3-none-any.whl", hash = "sha256:860195cb10db7b6b27ae1d6131fb853b8adb40da579071df90c8df939ce553aa"},
-    {file = "xskillscore-0.0.27.tar.gz", hash = "sha256:89a9f728f0a6b45b88b4f3bdaebf1a541923b58fca2c0abcad274d971ec121b2"},
+    {file = "xskillscore-0.0.28-py3-none-any.whl", hash = "sha256:567e31dc1407d9428ff4a5f82233472aae5611cc0ec5401ab2889953875f8e9f"},
+    {file = "xskillscore-0.0.28.tar.gz", hash = "sha256:e003bba66d2d244524f5b9fa9b152a71b09646d25beda42622b0eb7fd84c05c5"},
 ]
 zipp = [
     {file = "zipp-3.23.0-py3-none-any.whl", hash = "sha256:071652d6115ed432f5ce1d34c336c0adfd6a884660d1e9712a256d3d3bd4b14e"},
