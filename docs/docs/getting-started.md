@@ -46,3 +46,11 @@ Pre-processed model output in data/interim follows the following directory struc
                                     └── <variant_label> (LE2-1001.001)
                                               └── <variable_id> (ts)
 ```
+
+Runnings tests:
+Running a forked test isolates backend stacks per process
+so that we can use two different engines (h5netcdf for CESM2 and netcdf4 for CESM2-WACCM6)
+
+```
+pytest --forked tests/
+```

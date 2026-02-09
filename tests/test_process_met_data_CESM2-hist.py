@@ -1,13 +1,11 @@
 import pytest
 
 from fast_o3_iv.preprocess.process_met_data import ProcessMetData
-from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG 
 
 
 def test_process_met_data(capsys):
     """Test that ProcessMetData.compute() works and returns expected suffix
     """
-
     model = "CESM2"
     scenario = "historical"
     var_original = "TS"
@@ -22,8 +20,9 @@ def test_process_met_data(capsys):
         year_range=years,
     )
 
-    pipe.compute_and_save(save=False)
-
+    ds = pipe.compute()
+    ds.close()
+    
     captured = capsys.readouterr().out
 
     institution = pipe.institution_id
