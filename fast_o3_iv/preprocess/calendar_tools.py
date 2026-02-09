@@ -27,10 +27,11 @@ def time_set_monthstart(ds, deep=False):
     newtime = [cls(int(y), int(m), 1) for y, m in zip(new_year.values, new_month.values)]
     return ds.assign_coords(time=("time", newtime))
 
-def get_calendar(time_array):
+def get_time_encoding(time_array):
         """extract CF time encoding from a raw dataset's time variable"""
+        units = time_array.encoding.get("units") or time_array.attrs.get("units")
         calendar = time_array.encoding.get("calendar") or time_array.attrs.get("calendar")
-        return calendar
+        return units, calendar
         
 def interp_each_month_linearly(ds):
     """For future CMIP6 emissions that are prescribed decadally,
@@ -40,7 +41,7 @@ def interp_each_month_linearly(ds):
     Note: CESM2 uses noleap, so output timestamps use cftime.DatetimeNoLeap.
     """
 
-    calendar = get_calendar(ds['time'])
+    _, calendar = get_time_encoding(ds['time'])
 
     if calendar not in ('noleap'):
         raise ValueError("Only noleap calendars supported for now.")
@@ -49,9 +50,9 @@ def interp_each_month_linearly(ds):
     years = np.array([t.year for t in tvals])
     months = np.array([t.month for t in tvals])
 
-    def interp_one_month(month):
+    def interp_one_month(ds, month):
         month_mask = months == month
-        sel = da.isel(time=month_mask)
+        sel = ds.isel(time=month_mask)
 
         sel_years = years[month_mask]
         sel = sel.rename({"time": "year"}).assign_coords(year=("year", sel_years))
