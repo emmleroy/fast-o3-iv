@@ -39,37 +39,74 @@ class ProcessMetData:
         self.var_output = self.variable_map.get(self.var_original, self.var_original)
         if self.level not in (None, "surface"):
             self.level = float(self.level) 
+        self.out_filename = (
+            f"{self.institution_id}."
+            f"{self.source_id}."
+            f"{self.experiment_id}."
+            f"{self.variant_label}."
+            f"{self.var_output}."
+            f"{self.year_range[0]}-{self.year_range[-1]}.nc"
+        )
+        self.out_path = (
+            INTERIM_DATA_DIR
+            / self.institution_id
+            / self.source_id
+            / self.experiment_id
+            / self.variant_label
+            / self.var_output
+            / self.out_filename
+        )
 
     # Finding and opening files
     def _glob_all_filepaths(self):
         """Return a glob path for ALL files in data/external specified by the class
         (a glob path is a path with wildcards that can match multiple files/directories)
         """
+
+        if (self.source_id == "CESM2-WACCM6") and (self.experiment_id == "historical"):
+            suffix = f"atm/hist/{self.variant_label}.cam.h0.*.nc"
+        else:
+            suffix = f"{self.var_original}/*.nc"
+
         pattern = (
             EXTERNAL_DATA_DIR
             / self.institution_id
             / self.source_id
             / self.experiment_id
             / self.variant_label
-            / self.var_original
-            / "*.nc"
+            / suffix
         )
+        
         return sorted(glob.glob(str(pattern)))
 
     def _glob_year_files(self, year):
         """Return a glob path for yearly files in data/external specified by the class
         that match the selected year.
+
+        note! CESM2_WACCM6 met_data has a specific format in data/external on Svante
+        --> can be updated when/if that output is standardized and published
         """
+        if self.source_id == "CESM2-WACCM6" and self.experiment_id == "historical":
+            suffix = "atm/hist/{variant}.cam.h0.{year}*.nc".format(
+                        variant=self.variant_label,
+                        year=year,
+                    )
+        else:
+            suffix = "{var}/*{year}*.nc".format(
+                        var=self.var_original,
+                        year=year,
+                    )
+
         pattern = (
             EXTERNAL_DATA_DIR
             / self.institution_id
             / self.source_id
             / self.experiment_id
             / self.variant_label
-            / self.var_original
-            / "*{{year}}*.nc"
+            / suffix
         )
-        return sorted(glob.glob(str(pattern.format(year=year))))
+
+        return sorted(glob.glob(str(pattern)))
 
     def _required_vars(self):
         """If level is None or 'surface', only return var_original
@@ -87,7 +124,13 @@ class ProcessMetData:
 
     def _open_mfdataset(self, filepaths):
         """Open with xr.open_mfdataset, keep only required vars, then decode cftimes.
-        """        
+        """ 
+        print(filepaths)
+        if self.source_id == 'CESM2-WACCM6':
+            engine="netcdf4"
+        else:
+            engine="h5netcdf" # important!! to avoid binary incompatibility between numpy and netCDF
+
         ds_raw = xr.open_mfdataset(
             filepaths,
             combine="nested",
@@ -95,7 +138,7 @@ class ProcessMetData:
             compat="no_conflicts",
             data_vars="minimal",
             decode_times=False,
-            engine="h5netcdf", # important!! to avoid binary incompatibility between numpy and netCDF
+            engine=engine, 
         )
         ds_keep = ds_raw[self._required_vars()]
         time_coder = CFDatetimeCoder(use_cftime=True)
@@ -112,7 +155,7 @@ class ProcessMetData:
             parts = []
             for y in self.year_range: # only select annual files in year_range 
                 year_file = self._glob_year_files(y)
-                print(f"opening {year_file}", flush=True)
+                print(f"opening {y}", flush=True)
                 # 1. open file
                 ds_y = self._open_mfdataset(year_file)
                 # 2. fix month-start
@@ -209,6 +252,9 @@ class ProcessMetData:
         # Filter requested years (noteL isn't this repeated?)
         ds2 = ds.sel(time=ds.time.dt.year.isin(self.year_range))
         ds2.attrs.update(dict(ds.attrs))
+
+        print(f"Ready to save final concatenated file --> {self.out_path}", flush=True) 
+
         return ds2
 
     # Save / skip logic
@@ -223,36 +269,18 @@ class ProcessMetData:
             return False
 
     def compute_and_save(self, save=True):
-        out_filename = (
-            f"{self.institution_id}."
-            f"{self.source_id}."
-            f"{self.experiment_id}."
-            f"{self.variant_label}."
-            f"{self.var_output}."
-            f"{self.year_range[0]}-{self.year_range[-1]}.nc"
-        )
-        out_path = (
-            INTERIM_DATA_DIR
-            / self.institution_id
-            / self.source_id
-            / self.experiment_id
-            / self.variant_label
-            / self.var_output
-            / out_filename
-        )
 
         expected = 12 * len(self.year_range)
-        if self._exists_and_has_n_timesteps(out_path, expected=expected):
+        if self._exists_and_has_n_timesteps(self.out_path, expected=expected):
             print(f"Skipping - file already exists and has {expected} timesteps.", 
                   flush=True)
-            return out_path
+            return self.out_path
 
         ds = self.compute()
 
         if save:
-            os.makedirs(os.path.dirname(outpath), exist_ok=True)
-            ds.to_netcdf(outpath)
-            print(f"Wrote final concatenated file --> {out_path}", flush=True)
-        else:
-            print(f"Ready to save final concatenated file --> {out_path}", flush=True) 
-        return out_path
+            os.makedirs(os.path.dirname(self.out_path), exist_ok=True)
+            ds.to_netcdf(self.out_path)
+            print(f"Wrote final concatenated file --> {self.out_path}", flush=True)
+            
+        return self.out_path
