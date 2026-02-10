@@ -67,13 +67,13 @@ class ProcessChemData:
             / self.input_id
             / self.input_type
             / self.experiment_id
-            / self.var_output
+            / self.var_original
             / "*.nc"
         )
 
         return sorted(glob.glob(str(pattern)))
 
-    def _open_mfdataset(self, filepaths):
+    def _open_mfdataset_and_rename(self, filepaths):
         """Open with xr.open_mfdataset, rename vars, then decode cftimes.
         """ 
         
@@ -86,7 +86,17 @@ class ProcessChemData:
             raise NotImplementedError('only single-level variables support for now')
 
         # keep only the emissions we are interested in
-        ds_keep = ds_raw[[self.var_original]]
+        if (self.var_output).endswith("biomassburning"):
+            file_varname = self.var_original.removesuffix("_em_biomassburning")
+            ds_keep = ds_raw[[file_varname]]
+            ds_keep = ds_keep.rename_vars({file_varname: self.var_output})
+            ds_keep[self.var_output].attrs.update({"original name": file_varname})
+
+        else:
+            ds_keep = ds_raw[[self.var_original]]
+            ds_keep = ds_keep.rename_vars({self.var_original: self.var_output})
+            ds_keep[self.var_output].attrs.update({"original name": self.var_original})
+
 
         # inpsect metadata
         if ds_keep['time'].attrs['units'] == 'days since 0-1-1':
@@ -106,7 +116,7 @@ class ProcessChemData:
 
         # 1. open file
         print(filepaths)
-        ds0 = self._open_mfdataset(filepaths)
+        ds0 = self._open_mfdataset_and_rename(filepaths)
 
         # 2. fix month-start
         ds1 = calendar_tools.time_set_monthstart(ds0)
@@ -114,12 +124,8 @@ class ProcessChemData:
         ds1["time"].encoding.update(ds0["time"].encoding)
 
         # 3. sum sectoral emissions
-        ds2 = self._sum_sectoral_emissions(ds1)
-
-        # 4. rename vars
-        ds = ds2.rename_vars({self.var_original: self.var_output})
-        ds[self.var_output].attrs.update({"original name": self.var_original})
-
+        ds = self._sum_sectoral_emissions(ds1)
+        
         return ds
 
     def _sum_sectoral_emissions(self, ds):

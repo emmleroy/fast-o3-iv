@@ -6,10 +6,10 @@ def test_process_chem_data(capsys):
     """Test that ProcessMetData.compute() works and returns expected suffix
     """
     target_source_id = 'CESM2'
-    input_type = 'ghg_concentrations'
+    input_type = 'emissions'
     experiment_id = "ssp245"
-    var_original = "mole_fraction_of_methane_in_air" # CO_em_anthro for CESM2, emiss_anthro for CESM2-WACCM6
-    var_output = "mole_fraction_of_methane_in_air"
+    var_original = "CO_em_openburning" # CO_em_anthro for CESM2, emiss_anthro for CESM2-WACCM6
+    var_output = "CO_em_biomassburning"
     year_range  = range(2015, 2055)
 
     pipe = ProcessChemData(
