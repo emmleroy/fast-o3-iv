@@ -101,6 +101,9 @@ class ProcessChemData:
     def _open_file_and_rename_vars(self):
         filepaths = self._glob_all_filepaths()
 
+        if not filepaths:
+            raise FileNotFoundError(f"No files matched: {filepaths}")
+
         # 1. open file
         print(filepaths)
         ds0 = self._open_mfdataset(filepaths)

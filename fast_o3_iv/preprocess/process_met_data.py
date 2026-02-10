@@ -119,7 +119,6 @@ class ProcessMetData:
     def _open_mfdataset(self, filepaths):
         """Open with xr.open_mfdataset, keep only required vars, then decode cftimes.
         """ 
-        print(filepaths)
         if self.source_id == 'CESM2-WACCM6':
             engine="netcdf4"
         else:
@@ -132,7 +131,7 @@ class ProcessMetData:
             compat="no_conflicts",
             data_vars="minimal",
             decode_times=False,
-            engine=engine, 
+            engine=engine,
         )
         ds_keep = ds_raw[self._required_vars()]
         time_coder = CFDatetimeCoder(use_cftime=True)
@@ -140,10 +139,10 @@ class ProcessMetData:
 
     def _open_selected_years_and_levels(self):
         """If num files >= num years, assume we have annual files and open one by one
-
-        TO DO: test if this works with cmip output
         """
         filepaths = self._glob_all_filepaths()
+        if not filepaths:
+            raise FileNotFoundError(f"No files matched: {filepaths}")
 
         if len(filepaths) >= len(self.year_range):
             parts = []
@@ -252,7 +251,7 @@ class ProcessMetData:
         return ds2
 
     # Save / skip logic
-    @staticmethod # a static method is bound to the class, but doesn't modify the class state
+    @staticmethod # static methods don't use self, acts like a utility under the class
     def _exists_and_has_n_timesteps(path, *, time_name="time", expected): # * so that following vars are key-word only
         if not (os.path.exists(path) and os.path.getsize(path) > 0):
             return False
