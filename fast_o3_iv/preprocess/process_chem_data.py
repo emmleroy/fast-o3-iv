@@ -1,3 +1,4 @@
+import os
 import glob
 from dataclasses import dataclass
 from typing import Sequence
@@ -173,4 +174,32 @@ class ProcessChemData:
         print(f"Ready to save final concatenated file --> {self.out_path}", flush=True) 
 
         return ds3
+
+    # Save / skip logic
+    @staticmethod # a static method is bound to the class, but doesn't modify the class state
+    def _exists_and_has_n_timesteps(path, *, time_name="time", expected): # * so that following vars are key-word only
+        if not (os.path.exists(path) and os.path.getsize(path) > 0):
+            return False
+        try:
+            with xr.open_dataset(path, decode_cf=False, engine="netcdf4") as ds:
+                return int(ds.sizes.get(time_name, 0)) == expected
+        except Exception:
+            return False
+
+    def compute_and_save(self, save=True):
+
+        expected = 12 * len(self.year_range)
+        if self._exists_and_has_n_timesteps(self.out_path, expected=expected):
+            print(f"Skipping - file already exists and has {expected} timesteps.", 
+                  flush=True)
+            return self.out_path
+
+        ds = self.compute()
+
+        if save:
+            os.makedirs(os.path.dirname(self.out_path), exist_ok=True)
+            ds.to_netcdf(self.out_path)
+            print(f"Wrote final concatenated file --> {self.out_path}", flush=True)
+            
+        return self.out_path
         
