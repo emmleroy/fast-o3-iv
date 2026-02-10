@@ -43,8 +43,7 @@ def interp_each_month_linearly(ds):
 
     _, calendar = get_time_encoding(ds['time'])
 
-    if calendar not in ('noleap', '365_day'): # both of these are the same -- each year has 365 days and no leap years
-        print(calendar)
+    if calendar not in ('noleap', '365_day'): # both of these are the same --> each has 365 days, no leap years
         raise ValueError("Only noleap/365_day calendars supported for now.")
 
     tvals = ds["time"].values
@@ -69,3 +68,49 @@ def interp_each_month_linearly(ds):
  
     interp_all_months = [interp_one_month(m) for m in range(1, 13)]
     return xr.concat(interp_all_months, dim="time").sortby("time")
+
+def to_localtime(ds, lon_name="lon", lat_name="lat"):
+    """Convert hourly dataset at UTC to Local Standard Time (no DST) at every grid cell.
+    Note: works with datetime64 and cftime calendars since shift is index-based.
+    Note: originally adapted from https://github.com/barronh/pycmaq/
+    LST is defined by longitude.
+    """
+
+    ds0 = ds.copy(deep=True) # keep original ds unchanged
+
+    # 1. convert [0,360] to [-180, 180]
+    # this is so that timeznne offsets are signed around Greenwich (0°)
+    # west longitudes should have negative hours
+    # east longitudes hsould have positive hours
+    lon = ds0[lon_name] 
+    lon180 = xr.where(lon > 180, lon - 360, lon)
+
+    # 2. round longitude to the nearest multiple of 15°
+    # (time zones are ~roughly assigned every 15° of longitude, 
+    # since Earth rotates 360° / 24 hours = 15° per hour
+    # (x + 7.5) / 15.0 --> bin longitudes into 15° timezones with nearest rounding
+    # we add +7.5 so that boundaries are centered between bins (nearest-bin rounding for 15° bins)
+    # np.floor( ..., -12, 14) --> bound offsets to plausible UTC range
+    tz_off_1d = xr.apply_ufunc(
+        lambda x: np.clip(np.floor((x + 7.5) / 15.0), -12, 14).astype(np.int8),  
+        lon180,
+        dask="parallelized",
+        output_dtypes=[np.int8],
+    )
+
+    # broadcast to (lat, lon) since tz_off_1d depends only on longitude
+    _, tz_off = xr.broadcast(ds0[lat_name], tz_off_1d)
+
+    # add tz offset as a new coordinate to the dataset
+    ds1 = ds0.assign_coords(tz_off=tz_off)
+
+    # function to shift per-longitude; positive offset means local time is ahead of UTC
+    def _shift(group):
+        """for a given longitude group, grab the tz offset and shift time dimension by the offset"""
+        offset = int(group.tz_off.isel({lat_name: 0}).item())
+        return group if offset == 0 else group.shift(time=offset)
+
+    # apply the shift to longitude groups
+    shifted_ds = ds1.groupby(lon_name).map(_shift)
+
+    return shifted_ds.drop_vars("tz_off", errors="ignore")
