@@ -38,6 +38,8 @@ numpy = ">=2.3,<2.4"
 numba = ">=0.61"
 sparse = "*"
 nc-time-axis = "^1.4.1"
+ipywidgets = "^8.1.8"
+jupyterlab-widgets = "^3.0.16"
 
 [tool.ruff]
 line-length = 99
