@@ -43,14 +43,15 @@ def interp_each_month_linearly(ds):
 
     _, calendar = get_time_encoding(ds['time'])
 
-    if calendar not in ('noleap'):
-        raise ValueError("Only noleap calendars supported for now.")
+    if calendar not in ('noleap', '365_day'): # both of these are the same -- each year has 365 days and no leap years
+        print(calendar)
+        raise ValueError("Only noleap/365_day calendars supported for now.")
 
     tvals = ds["time"].values
     years = np.array([t.year for t in tvals])
     months = np.array([t.month for t in tvals])
 
-    def interp_one_month(ds, month):
+    def interp_one_month(month):
         month_mask = months == month
         sel = ds.isel(time=month_mask)
 
@@ -65,6 +66,6 @@ def interp_each_month_linearly(ds):
 
         new_time = [cftime.DatetimeNoLeap(tyear, month, 1) for tyear in target_years]
         return sel_interp.rename({"year": "time"}).assign_coords(time=("time", new_time))
-
+ 
     interp_all_months = [interp_one_month(m) for m in range(1, 13)]
     return xr.concat(interp_all_months, dim="time").sortby("time")

@@ -1,144 +1,176 @@
-import glob, os
+import glob
+from dataclasses import dataclass
+from typing import Sequence
+
 import xarray as xr
-import numpy as np
-import cftime
-import datetime
-import xesmf as xe
-import dask
+from xarray.coders import CFDatetimeCoder
 
-from src import tools, calendar_utils
 from fast_o3_iv.preprocess.calendar_tools import interp_each_month_linearly
+from fast_o3_iv.preprocess import calendar_tools
+from fast_o3_iv.config import EXTERNAL_DATA_DIR, INTERIM_DATA_DIR
+from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG 
+from fast_o3_iv.preprocess import regrid
 
-dask.config.set({"array.slicing.split_large_chunks": True})
-
-
-class PreprocessChemData:
-
-    """pipeline to pre-process MONTHLY files of input4MIPs (future scenario inputs must be interpolated)
-        var_name: variable name
-        input_template: path to raw monthly files and filename template
-        output_template: where to store processed files
-        """
-
-    def __init__(self, var_name, years, input_template, output_template, grid_template):
-        self.var = var_name
-        self.years = years
-        self.input_template = input_template
-        self.output_template = output_template
-        self.grid_template = grid_template
-
-    def _open_selected_years(self):
-        """open alls years of monthly files with raw time (no decoding), then decode to cftime"""
-        
-        # open files
-        files = sorted(glob.glob(self.input_template))
-
-        ds = xr.open_mfdataset(
-                files,
-                combine='nested', concat_dim='time',
-                data_vars='minimal', coords='minimal', compat='override',
-                decode_times=False,
-                engine='netcdf4',                    parallel=True,
-                chunks={"time": 240, "lat":-1, "lon":-1},
-            )
+@dataclass
+class ProcessChemData:
+    """Pipeline to pre-process chem variables from input4CMIPs/input4CMIPs-cesm:
     
-        # inpsect metadata
-        if ds['time'].attrs['units'] == 'days since 0-1-1':
-            # fix weird units (for GHGforcings)
-            ds['time'].attrs['units'] = 'days since 0001-01-01'
+    1. Concatenate netCDF files
+    2. Optionally collapse the sectoral dimension
+    2. Interpolate linearly between anchor years for future scenario inputs
+    3. Rename variables to CMIP6 convention (if using CESM)
+    3. Move monthly timestamps to month-start
+    4. Filter selected years
+    5. Write a single netCDF file to data/interim
+    """
+    target_source_id : str      # 'CESM2' or 'CESM2-WACCM6'
+    input_type : str            # either emissions or ghg_forcings
+    experiment_id : str         # i.e. historical or ssp245
+    var_original : str          # native variable name ('emiss_anthro')
+    var_output : str            # output variable name i.e. 'CO_em_anthro'
+    year_range : Sequence[int]  # selected years (range(1975,2014)
 
-        # now decode with cftime (safe)
-        ds = xr.decode_cf(ds, use_cftime=True)
-        saved_attrs = ds.attrs
-        # select variable of interest
-        if (self.var or "").endswith("biomassburning"):
-            var = self.var.removesuffix("_em_biomassburning")
-            ds = ds[var].to_dataset()
-        else:
-            ds = ds[self.var].to_dataset()
+    def __post_init__(self): 
+        """Compute derived attributes ("post initialization") """
+        self._model_config = MODEL_CONFIG[self.target_source_id]
+        self.input_id = self._model_config["input_id"]  
+        self.institution_id = self._model_config["institution_id"]  
+        members_by_exp = self._model_config["members"]
+        self.members = members_by_exp[self.experiment_id]
+        self._engine = "h5netcdf" if self.experiment_id == "historical" else "netcdf4"
+        self.out_filename = (
+            f"{self.institution_id}."
+            f"{self.target_source_id}."
+            f"{self.experiment_id}."
+            "inputs."
+            f"{self.var_output}."
+            f"{self.year_range[0]}-{self.year_range[-1]}.nc"
+        )
+        self.out_path = (
+            INTERIM_DATA_DIR
+            / self.institution_id
+            / self.target_source_id
+            / self.experiment_id
+            / "inputs"
+            / self.var_output
+            / self.out_filename
+        )
 
-        # linearly interpolate if emissions are decadal
-        expected = np.array([2015, 2020, 2030, 2040, 2050, 2060, 2070, 2080, 2090, 2100])
-        decadal_years = np.unique(ds.time.dt.year.values)
-        if np.array_equal(decadal_years, expected):
-            # linearly interpolate between anchor years
-            ds_interpolated = interp_each_month_linearly(ds)
-            ds_interpolated["time"].attrs = dict(ds["time"].attrs)
-            ds_interpolated["time"].encoding.update(ds["time"].encoding)
+    # Finding and opening files
+    def _glob_all_filepaths(self):
+        """Return a glob path for ALL files in data/external specified by the class
+        (a glob path is a path with wildcards that can match multiple files/directories)
+        """
+        pattern = (
+            EXTERNAL_DATA_DIR
+            / self.input_id
+            / self.input_type
+            / self.experiment_id
+            / self.var_output
+            / "*.nc"
+        )
 
-        else:
-            ds_interpolated = ds
+        return sorted(glob.glob(str(pattern)))
 
-
-        # select time period of interest
-        ds_interpolated = ds_interpolated.sel(time=ds_interpolated.time.dt.year.isin(self.years))
-        ds_interpolated.attrs = dict(saved_attrs)
-        return ds_interpolated
-
-
-    def _regrid(self, ds):
-        """regrid input4MIPs to match target model"""
-        grid_file = self.grid_template
-        target_ds = xr.open_dataset(grid_file, decode_times=True)
-        target_ds = target_ds.transpose("time", "lat", "lon")
-        if "lon" not in ds.coords and "longitude" not in ds.coords:
-            ds = ds.expand_dims(lon=target_ds["lon"]) 
-            ds = ds.transpose("time", "lat", "lon")
-
-        regridder = xe.Regridder(ds, target_ds, 'bilinear')
-        ds_regridded = regridder(ds)
-
+    def _open_mfdataset(self, filepaths):
+        """Open with xr.open_mfdataset, rename vars, then decode cftimes.
+        """ 
         
-        units_original, calendar_original = self.get_time_encoding(ds_regridded['time'])
-        units, calendar = self.get_time_encoding(target_ds['time'])
-
-        if calendar != calendar_original:
-            ds_regridded['time'] = target_ds['time']
-            ds_regridded["time"].attrs = dict(target_ds["time"].attrs)
-            ds_regridded["time"].encoding.update(target_ds["time"].encoding)
-
-        return ds_regridded
-
-    def compute(self):
-
-        # open selected data
-        ds00 = self._open_selected_years()
+        ds_raw = xr.open_mfdataset(filepaths,
+                                    decode_times=False,
+                                    engine=self._engine)
 
         # check for 3D vars
-        if ('lev' in ds00.dims) or ('plev' in ds00.dims):
+        if ('lev' in ds_raw.dims) or ('plev' in ds_raw.dims):
             raise NotImplementedError('only single-level variables support for now')
+
+        # keep only the emissions we are interested in
+        ds_keep = ds_raw[[self.var_original]]
+
+        # inpsect metadata
+        if ds_keep['time'].attrs['units'] == 'days since 0-1-1':
+            # fix weird units (for GHGforcings)
+            ds_keep['time'].attrs['units'] = 'days since 0001-01-01'
+
+        # decode times
+        time_coder = CFDatetimeCoder(use_cftime=True)
         
-        # adjust calendar
-        ds0 = calendar_utils.snap_monthly_to_month_start(ds00)
+        return xr.decode_cf(ds_keep, decode_times=time_coder)
 
-        # sum sectoral emissions
-        if "sector" in ds0.dims: 
-            ds = ds0.sum(dim='sector', keep_attrs=True)
+    def _open_file_and_rename_vars(self):
+        filepaths = self._glob_all_filepaths()
+
+        # 1. open file
+        print(filepaths)
+        ds0 = self._open_mfdataset(filepaths)
+
+        # 2. fix month-start
+        ds1 = calendar_tools.time_set_monthstart(ds0)
+        ds1["time"].attrs = dict(ds0["time"].attrs)
+        ds1["time"].encoding.update(ds0["time"].encoding)
+
+        # 3. sum sectoral emissions
+        ds2 = self._sum_sectoral_emissions(ds1)
+
+        # 4. rename vars
+        ds = ds2.rename_vars({self.var_original: self.var_output})
+        ds[self.var_output].attrs.update({"original name": self.var_original})
+
+        return ds
+
+    def _sum_sectoral_emissions(self, ds):
+        if "sector" in ds.dims:
+            ds = ds.sum(dim="sector")
+        return ds
+
+    def _linearly_interpolate(self, ds):
+        if self.experiment_id != 'historical':
+            ds_interp = calendar_tools.interp_each_month_linearly(ds)
         else:
-            ds = ds0
+            ds_interp = ds
+        return ds_interp
 
-        # regrid
-        ds_regridded = self._regrid(ds)
-        ds_regridded.attrs.update(dict(ds.attrs))
-        return ds_regridded
-    
-    @staticmethod
-    def _exists_and_has_480_timesteps(path: str, *, time_name="time", expected=480):
-        if not (os.path.exists(path) and os.path.getsize(path) > 0):
-            return False
-        try:
-            with xr.open_dataset(path, decode_cf=False, engine="netcdf4") as ds:
-                return int(ds.sizes.get(time_name, 0)) == expected
-        except Exception:
-            return False
+    def target_grid(self):
+        grid_filename = (
+            f"{self.institution_id}."
+            f"{self.target_source_id}."
+            f"{self.experiment_id}."
+            f"{self.members[0]}."
+            f"tas."
+            f"{self.year_range[0]}-{self.year_range[-1]}.nc"
+        )
+        grid_path = (
+            INTERIM_DATA_DIR
+            / self.institution_id
+            / self.target_source_id
+            / self.experiment_id
+            / self.members[0]
+            / 'tas'
+            / grid_filename
+        )
 
-    def compute_and_save(self): 
-        outdir = self.output_template
+        output_grid = xr.open_dataset(grid_path, engine= self._engine)
 
-        if self._exists_and_has_480_timesteps(outdir):
-            print(f"Skipping - file already exists and has 480 timesteps.", flush=True)
-        else:
-            ds = self.compute()
-            os.makedirs(os.path.dirname(outdir), exist_ok=True)
-            ds.to_netcdf(outdir) 
-            print(f"Wrote final concatenated file --> {outdir}", flush=True)
+        return output_grid
+
+    # Usage function
+    def compute(self):
+
+        # 0. open file
+        ds0 = self._open_file_and_rename_vars()
+
+        # 1. optionally linearly interpolate
+        ds1 = self._linearly_interpolate(ds0)
+
+        # 2. select years
+        ds2 = ds1.sel(time=ds1.time.dt.year.isin(list(self.year_range)))
+
+        # 3. regrid to target grid
+        target_grid = self.target_grid()
+        ds3 = regrid.regrid(ds2, target_grid, convert_calendar=True)
+
+
+        print(f"Ready to save final concatenated file --> {self.out_path}", flush=True) 
+
+        return ds3
+        

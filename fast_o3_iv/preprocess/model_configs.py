@@ -2,7 +2,7 @@
 
 # Maps CESM2 variable names -> CMIP6 variable names
 CESM2_TO_CMIP6_MAP = {
-    "TS": "ts",
+    "TREFHT": "tas",    
     "QREFHT": "huss",
     "PSL": "psl",
     "PRECT": "pr",
@@ -13,7 +13,122 @@ CESM2_TO_CMIP6_MAP = {
     "PS": "ps",
 }
 
+
+member_set = {
+  "CESM2-WACCM6" : {
+    "historical" : [
+           'wa6_ic1.001',
+           'wa6_ic1.002',
+           'wa6_ic1.003',
+           'wa6_ic1.004',
+           'wa6_ic1.005',
+           'wa6_ic2.001',
+           'wa6_ic2.002',
+           'wa6_ic2.003',
+           'wa6_ic2.004',
+           'wa6_ic3.001',
+           'wa6_ic3.002',
+           'wa6_ic3.003',
+           'wa6_ic3.004',
+    ],
+    "ssp245" : [
+        '001',
+        '002',
+        '003',
+        '004',
+        '005',
+        '006',
+        '007',
+        '008',
+        '009',
+        '010'
+    ],
+  },
+  "CESM2" : {
+    "historical" : [
+            "LE2-1001.001",
+            "LE2-1021.002",
+            "LE2-1041.003",
+            "LE2-1061.004",
+            "LE2-1081.005",
+            "LE2-1101.006",
+            "LE2-1121.007",
+            "LE2-1141.008",
+            "LE2-1161.009",
+            "LE2-1181.010",
+            "LE2-1231.001",
+            "LE2-1231.002",
+            "LE2-1231.003",
+            "LE2-1231.004",
+            "LE2-1231.005",
+            "LE2-1231.006",
+            "LE2-1231.007",
+            "LE2-1231.008",
+            "LE2-1231.009",
+            "LE2-1231.010", 
+            "LE2-1251.001",
+            "LE2-1251.002",
+            "LE2-1251.003",
+            "LE2-1251.004",
+            "LE2-1251.005",
+            "LE2-1251.006",
+            "LE2-1251.007",
+            "LE2-1251.008",
+            "LE2-1251.009",
+            "LE2-1251.010", 
+            "LE2-1281.001",
+            "LE2-1281.002",
+            "LE2-1281.003",
+            "LE2-1281.004",
+            "LE2-1281.005",
+            "LE2-1281.006",
+            "LE2-1281.007",
+            "LE2-1281.008",
+            "LE2-1281.009",
+            "LE2-1281.010", 
+            "LE2-1301.001",
+            "LE2-1301.002",
+            "LE2-1301.003",
+            "LE2-1301.004",
+            "LE2-1301.005",
+            "LE2-1301.006",
+            "LE2-1301.007",
+            "LE2-1301.008",
+            "LE2-1301.009",
+            "LE2-1301.010"
+    ],
+    "ssp245" : [
+        '001',
+        '002',
+        '003',
+        '004',
+        '005',
+        '006',
+        '007',
+        '008',
+        '009',
+        '010',
+        '011',
+        '012',
+        '013',
+        '014',
+        '015',
+        '016',
+    ],
+  }
+}
+
 MODEL_CONFIG = {
-    "CESM2": {"institution_id": "NCAR", "variable_map": CESM2_TO_CMIP6_MAP},
-    "CESM2-WACCM6": {"institution_id": "NCAR", "variable_map": CESM2_TO_CMIP6_MAP},
+    "CESM2": {
+        "institution_id": "NCAR", 
+        "variable_map": CESM2_TO_CMIP6_MAP, 
+        "input_id": "input4MIPs",
+        "members": member_set['CESM2']
+        },
+    "CESM2-WACCM6": {
+        "institution_id": "NCAR", 
+        "variable_map": CESM2_TO_CMIP6_MAP, 
+        "input_id": "input4MIPs",
+        "members": member_set['CESM2-WACCM6']
+        }
 }

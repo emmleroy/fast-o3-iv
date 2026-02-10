@@ -87,15 +87,9 @@ class ProcessMetData:
         --> can be updated when/if that output is standardized and published
         """
         if self.source_id == "CESM2-WACCM6" and self.experiment_id == "historical":
-            suffix = "atm/hist/{variant}.cam.h0.{year}*.nc".format(
-                        variant=self.variant_label,
-                        year=year,
-                    )
+            suffix = f"atm/hist/{self.variant_label}.cam.h0.{year}*.nc"
         else:
-            suffix = "{var}/*{year}*.nc".format(
-                        var=self.var_original,
-                        year=year,
-                    )
+            suffix = f"{self.var_original}/*{year}*.nc"
 
         pattern = (
             EXTERNAL_DATA_DIR

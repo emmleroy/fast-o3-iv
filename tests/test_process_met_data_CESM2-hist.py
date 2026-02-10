@@ -8,7 +8,7 @@ def test_process_met_data(capsys):
     """
     model = "CESM2"
     scenario = "historical"
-    var_original = "TS"
+    var_original = "TREFHT"
     member = "LE2-1001.001"
     years = range(1975, 2015)
 

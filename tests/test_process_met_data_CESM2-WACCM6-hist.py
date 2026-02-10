@@ -9,7 +9,7 @@ def test_process_met_data(capsys):
 
     model = "CESM2-WACCM6"
     scenario = "historical"
-    var_original = "TS"
+    var_original = "TREFHT"
     member = "wa6_ic1.001"
     years = range(1975, 1977)
 
