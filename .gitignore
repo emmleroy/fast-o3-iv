@@ -5,6 +5,9 @@ RIVR_dump
 data
 data_local
 
+# Figures
+*.png
+
 # Mac OS-specific storage files
 .DS_Store
 
