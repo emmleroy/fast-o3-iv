@@ -1,7 +1,7 @@
 import glob
 import os
 from dataclasses import dataclass
-from typing import Iterable, Optional, Sequence, Union, Dict, List
+from typing import Optional, Sequence, Union
 
 import numpy as np
 import xarray as xr
@@ -29,7 +29,7 @@ class ProcessMetData:
     variant_label : str         # ensemble member ID
     var_original : str          # native variable name ('TS')
     year_range : Sequence[int]  # selected years (range(1975,2014)
-    level = None                # can be : None, "surface" or numeric hPa
+    level: Optional[Union[str, float]] = None # can be : None, "surface" or numeric hPa
 
     def __post_init__(self): 
         """Compute derived attributes ("post initialization") """
