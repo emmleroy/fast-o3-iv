@@ -252,6 +252,6 @@ class ProcessMDA8O3:
         if self._exists_and_has_n_timesteps(self.out_path, expected=expected):
             print(f"Skipping {self.out_path} --> file already exists and has {expected} timesteps.", flush=True)
         else:
-            #os.makedirs(os.path.dirname(self.out_path), exist_ok=True)
-            #ds.to_netcdf(self.out_path) 
+            os.makedirs(os.path.dirname(self.out_path), exist_ok=True)
+            ds.to_netcdf(self.out_path) 
             print(f"Wrote final concatenated file --> {self.out_path}", flush=True)
