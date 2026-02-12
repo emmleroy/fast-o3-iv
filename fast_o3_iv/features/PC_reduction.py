@@ -19,13 +19,13 @@ class ApplyPCReduction:
 
     note: this only takes pre-processed fields from data/interim
     """
-    input_source_id : str             # 'CESM2' or 'CESM2-WACCM6'
+    input_source_id : str       # 'CESM2' or 'CESM2-WACCM6'
     experiment_id : str         # i.e. historical or ssp245
     training_member : str       # training ensemble member ID
     var_input : str             # input variable name i.e. 'zg500'
     year_range : Sequence[int]  # selected years (range(1975,2015)
     k : int                     # number of principal components
-
+    
     _is_fitted: bool = field(init=False, default=False, repr=False)
 
     def __post_init__(self): 
@@ -37,8 +37,10 @@ class ApplyPCReduction:
         else:
             raise ValueError(f"Only institution_id: {self.institution_id} support for now")
         
-        self.var_output = "hemis_pcs_" + self.var_input
+        self.var_output = f"hemis_{self.k}pcs_" + self.var_input
         self.training_path = self._get_filepath(self.training_source_id, self.var_input, self.training_member)        
+        members_by_exp = self.input_model_config["members"]
+        self.members = members_by_exp[self.experiment_id]
 
     def _get_filepath(self, source_id, variable, member):
         file_name = (
@@ -130,7 +132,6 @@ class ApplyPCReduction:
         input_path = self._get_filepath(self.input_source_id, self.var_input, variant_label)
         input_da = xr.open_dataarray(input_path)
         da = input_da.transpose('time', 'lat', 'lon').load()
-
         
         if da.sizes["lat"] != self.lat.size or da.sizes["lon"] != self.lon.size:
             raise ValueError("Input grid shape does not match training grid.")
@@ -140,6 +141,8 @@ class ApplyPCReduction:
             raise ValueError("Input lon coords do not match training grid.")
 
         # 2. calculate anomalies relative to the training climatology
+        # enforce identical coords otherwise anomalies calc will fail
+        da = da.assign_coords(lat=self.lat, lon=self.lon) 
         anomalies = da.groupby("time.month") - self.training_clm_month
 
         # 3. separate hemispheric anomalies
@@ -148,14 +151,14 @@ class ApplyPCReduction:
 
         # 4. separate hemispheric PCs
         pcs_nh = self.eof_solver_nh.projectField(
-            nh_input_anm, 
-            neofs=self.k, 
+            nh_input_anm,
+            neofs=self.k,
             eofscaling=1).assign_coords(
             mode=np.arange(1, self.k + 1)
         )
         pcs_sh = self.eof_solver_sh.projectField(
-            sh_input_anm, 
-            neofs=self.k, 
+            sh_input_anm,
+            neofs=self.k,
             eofscaling=1).assign_coords(
             mode=np.arange(1, self.k + 1)
         )
