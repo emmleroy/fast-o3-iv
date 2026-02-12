@@ -41,6 +41,7 @@ nc-time-axis = "^1.4.1"
 ipywidgets = "^8.1.8"
 jupyterlab-widgets = "^3.0.16"
 joblib = "^1.5.3"
+scikit-learn = "^1.8.0"
 
 [tool.ruff]
 line-length = 99
