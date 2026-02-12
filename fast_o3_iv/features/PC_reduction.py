@@ -142,7 +142,8 @@ class ApplyPCReduction:
 
         # 2. calculate anomalies relative to the training climatology
         # enforce identical coords otherwise anomalies calc will fail
-        da = da.assign_coords(lat=self.lat, lon=self.lon) 
+        # note that this can cause the zg500 anomalies to have a nonzero mean
+        da = da.assign_coords(lat=self.lat, lon=self.lon)
         anomalies = da.groupby("time.month") - self.training_clm_month
 
         # 3. separate hemispheric anomalies
