@@ -711,6 +711,14 @@ MarkupSafe = ">=2.0"
 i18n = ["Babel (>=2.7)"]
 
 [[package]]
+name = "joblib"
+version = "1.5.3"
+description = "Lightweight pipelining with Python functions"
+category = "main"
+optional = false
+python-versions = ">=3.9"
+
+[[package]]
 name = "json5"
 version = "0.13.0"
 description = "A Python implementation of the JSON5 data format."
@@ -2287,7 +2295,7 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "1.1"
 python-versions = "~3.11.0"
-content-hash = "66680895480acc263f17911d22db5d2a4de4fe6807e6306d6515cce4bdf3a1c1"
+content-hash = "b82315c473c30b86ef2f554eaabc26be76cbdc4a2de9333247ca04372479538a"
 
 [metadata.files]
 anyio = [
@@ -2933,6 +2941,10 @@ jedi = [
 jinja2 = [
     {file = "jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67"},
     {file = "jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d"},
+]
+joblib = [
+    {file = "joblib-1.5.3-py3-none-any.whl", hash = "sha256:5fc3c5039fc5ca8c0276333a188bbd59d6b7ab37fe6632daa76bc7f9ec18e713"},
+    {file = "joblib-1.5.3.tar.gz", hash = "sha256:8561a3269e6801106863fd0d6d84bb737be9e7631e33aaed3fb9ce5953688da3"},
 ]
 json5 = [
     {file = "json5-0.13.0-py3-none-any.whl", hash = "sha256:9a08e1dd65f6a4d4c6fa82d216cf2477349ec2346a38fd70cc11d2557499fbcc"},
