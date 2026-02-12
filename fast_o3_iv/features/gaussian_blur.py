@@ -20,48 +20,39 @@ class ApplyGaussianBlur:
     var_input : str             # input variable name i.e. 'CO_em_anthro'
     year_range : Sequence[int]  # selected years (range(1975,2014)
 
+    def _get_filepath(self, variable):
+            file_name = (
+                f"{self.institution_id}."
+                f"{self.source_id}."
+                f"{self.experiment_id}."
+                "inputs."
+                f"{variable}."
+                f"{self.year_range[0]}-{self.year_range[-1]}.nc"
+            )
+            file_path = (
+                INTERIM_DATA_DIR
+                / self.institution_id
+                / self.source_id
+                / self.experiment_id
+                / "inputs"
+                / f"{variable}"
+                / file_name
+            )
+            return file_path
+
     def __post_init__(self): 
-            """Compute derived attributes ("post initialization") """
-            self._model_config = MODEL_CONFIG[self.source_id]
-            self.input_id = self._model_config["input_id"]  
-            self.institution_id = self._model_config["institution_id"]  
-            members_by_exp = self._model_config["members"]
-            self.members = members_by_exp[self.experiment_id]
-            self.input_filename = (
-                f"{self.institution_id}."
-                f"{self.source_id}."
-                f"{self.experiment_id}."
-                "inputs."
-                f"{self.var_input}."
-                f"{self.year_range[0]}-{self.year_range[-1]}.nc"
-            )
-            self.input_path = (
-                INTERIM_DATA_DIR
-                / self.institution_id
-                / self.source_id
-                / self.experiment_id
-                / "inputs"
-                / self.var_input
-                / self.input_filename
-            )
-            self.var_output = self.var_input + '_blur'
-            self.output_filename = (
-                f"{self.institution_id}."
-                f"{self.source_id}."
-                f"{self.experiment_id}."
-                "inputs."
-                f"{self.var_output}."
-                f"{self.year_range[0]}-{self.year_range[-1]}.nc"
-            )
-            self.output_path = (
-                INTERIM_DATA_DIR
-                / self.institution_id
-                / self.source_id
-                / self.experiment_id
-                / "inputs"
-                / self.var_output
-                / self.output_filename
-            )
+        """Compute derived attributes ("post initialization") """
+        self._model_config = MODEL_CONFIG[self.source_id]
+        self.input_id = self._model_config["input_id"]  
+        self.institution_id = self._model_config["institution_id"] 
+
+        # input paths for processed emissions inputs
+        self.input_path = self._get_filepath(self.var_input)
+        
+        # output paths for blurred emissions inputs
+        self.var_output = self.var_input + '_blur'
+        self.output_path = self._get_filepath(self.var_output)
+
 
     @staticmethod
     def apply_gaussian_blur(input_da, species):
