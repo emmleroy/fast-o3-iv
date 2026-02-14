@@ -125,6 +125,8 @@ MODEL_CONFIG = {
         "input_id": "input4MIPs",
         "members": member_set['CESM2'],
         "has_chemistry": False,
+        "num_lat" : 192,
+        "num_lon" : 288,
         },
     "CESM2-WACCM6": {
         "institution_id": "NCAR", 
@@ -132,5 +134,7 @@ MODEL_CONFIG = {
         "input_id": "input4MIPs",
         "members": member_set['CESM2-WACCM6'],
         "has_chemistry": True,
+        "num_lat" : 192,
+        "num_lon" : 288,
         }
 }

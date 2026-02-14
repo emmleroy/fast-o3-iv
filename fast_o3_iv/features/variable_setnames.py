@@ -15,14 +15,7 @@ VARIABLE_SET = {
     "pc_variables" : ["hemis_5pcs_zg500"],
     "time_variables" : ["month"],
     "location_variables": ['lat', 'lon', 'orog', 'sftlf'],
-  },
-  "setC" : {
-    "target" : ["mda8o3"],
-    "met" : ['tas', 'pr', 'psl', 'rsds','huss', 'ua', 'va'],
-    "chem" : ['NOx_em_anthro_blur', 'NOx_em_openburning_blur', 'CO_em_anthro_blur', 'CO_em_openburning_blur', 'mole_fraction_of_methane_in_air'],
-    "pc_variables" : ["hemis_5pcs_zg500"],
-    "time_variables" : ["month"],
-  },
+  }
 }
 
 pc_variable_sets = {
