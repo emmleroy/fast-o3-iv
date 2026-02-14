@@ -9,52 +9,39 @@ Fast surrogate modeling of ozone internal variability
 ## Project Organization
 
 ```
-├── LICENSE            <- Open-source license if one is chosen
-├── Makefile           <- Makefile with convenience commands like `make data` or `make train`
-├── README.md          <- The top-level README for developers using this project.
-├── data
-│   ├── external       <- Data from third party sources.
-│   ├── interim        <- Intermediate data that has been transformed.
-│   ├── processed      <- The final, canonical data sets for modeling.
-│   └── raw            <- The original, immutable data dump.
-│
-├── docs               <- A default mkdocs project; see www.mkdocs.org for details
-│
-├── models             <- Trained and serialized models, model predictions, or model summaries
-│
-├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-│                         the creator's initials, and a short `-` delimited description, e.g.
-│                         `1.0-jqp-initial-data-exploration`.
-│
-├── pyproject.toml     <- Project configuration file with package metadata for 
-│                         fast_o3_iv and configuration for tools like black
-│
-├── references         <- Data dictionaries, manuals, and all other explanatory materials.
-│
-├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
-│   └── figures        <- Generated graphics and figures to be used in reporting
-│
-├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-│                         generated with `pip freeze > requirements.txt`
-│
-├── setup.cfg          <- Configuration file for flake8
-│
-└── fast_o3_iv   <- Source code for use in this project.
-    │
-    ├── __init__.py             <- Makes fast_o3_iv a Python module
-    │
-    ├── config.py               <- Store useful variables and configuration
-    │
-    ├── dataset.py              <- Scripts to download or generate data
-    │
-    ├── features.py             <- Code to create features for modeling
-    │
-    ├── modeling                
-    │   ├── __init__.py 
-    │   ├── predict.py          <- Code to run model inference with trained models          
-    │   └── train.py            <- Code to train models
-    │
-    └── plots.py                <- Code to create visualizations
+├── LICENSE                  <- MIT License
+├── Makefile                 <- Makefile with convenience commands like `make data` or `make train`
+├── README.md                <- The top-level README for users
+├── bash_scripts/            
+├── data/
+│   ├── external/            <- Raw, immutable data (climate model output from cmip6 or cesm)
+│   ├── interim/             <- Pre-processed climate model output (netcdf4 files)
+│   └── processed/           <- The final, canonical data sets for modeling (parquet files)
+│       ├── model_inputs/
+|       └── model_outputs/
+├── docs/                    <- A default mkdocs project; see www.mkdocs.org for details
+├── models/                  <- Trained and serialized models, model predictions, or model summaries
+├── notebooks/               <- Jupyter notebooks with examples for each step/script
+├── pyproject.toml           <- Project configuration file
+├── figures                  <- Generated figures
+│   ├── exploratory/         
+│   └── paper/               
+├── requirements.txt         <- The requirements file for reproducing the analysis environment, e.g.
+│                               generated with `pip freeze > requirements.txt`
+├── test/                  
+├── setup.cfg                <- Configuration file for flake8
+└── fast_o3_iv               <- Source code for use in this project.
+    ├── __init__.py          <- Makes fast_o3_iv a Python module
+    ├── config.py            <- Store useful variables and configuration
+    ├── download/            <- Scripts to download data (external --> data/external)
+    ├── preprocess/          <- Code to pre-process model output (data/external -> data/internal) 
+    ├── features/            <- Code to create features (data/interim --> data/interim)
+    ├── tabularize/          <- Code to create dataframes for modeling (data/interim --> data/processed)     
+    └── modeling/               
+        ├── __init__.py 
+        ├── predict.py       <- Code to run model inference with trained models          
+        └── train.py         <- Code to train models
+    
 ```
 
 --------
