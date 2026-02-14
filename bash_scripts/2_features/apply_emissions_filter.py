@@ -6,17 +6,18 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-m', '--model', type=str, required=True)
 parser.add_argument('-s', '--scenario', type=str, required=True)
 parser.add_argument("-v", "--var_input", required=True,
-                    choices=["CO_em_anthro", "CO_em_openburning", "NOx_em_anthro", "NOx_em_openburning"])
+                    choices=["CO_em_anthro", "CO_em_openburning",
+                             "NOx_em_anthro", "NOx_em_openburning"])
 parser.add_argument("-o", "--method", required=True, choices=["isotropic", "downwind"])
 parser.add_argument("-l", "--variant_label", default=None)
 
 args = parser.parse_args()
 
 model = args.model                  # CESM2-WACCM6
-scenario = args.scenario            # 'historical'
-var_input = args.var_input          # 'CO_em_openburning' #CO_em_anthro, NOx_em_anthro, NOx_em_openburning, 
-method = args.method                #'downwind'
-variant_label = args.variant_label  # 'wa6_ic1.001'
+scenario = args.scenario            # historical
+var_input = args.var_input          # [CO,NOx]_em_openburning, [CO,NOx]_em_anthro
+method = args.method                # downwind
+variant_label = args.variant_label  # wa6_ic1.001
 
 if args.method == "downwind" and not args.variant_label:
     parser.error("--variant_label is required when --method=downwind")
