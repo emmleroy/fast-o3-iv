@@ -4,13 +4,14 @@ from typing import Sequence, Literal
 
 import numpy as np
 import xarray as xr
+from scipy import ndimage as ndi
 
 from fast_o3_iv.config import EXTERNAL_DATA_DIR, INTERIM_DATA_DIR
 from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG
 
 
 @dataclass 
-class ApplyGaussianBlur:
+class ApplyEmissionsFilter:
     """Apply anisotropic Gaussian blurring kernel to the emission fields (NOx or CO)
 
     note: this only takes model-specific inputs (emission files from input4MIPs that have 
@@ -20,19 +21,19 @@ class ApplyGaussianBlur:
     experiment_id : str         # i.e. historical or ssp245
     var_input : str             # input variable name i.e. 'CO_em_anthro'
     year_range : Sequence[int]  # selected years (range(1975,2014)
-    method: Literal["anisotropic", "downwind"] # literals restrict type hints to specific constants
+    method: Literal["isotropic", "downwind"] # literals restrict type hints to specific constants
     variant_label: str | None = None
 
     def __post_init__(self):
         """Compute derived attributes ("post initialization") """
-        if self.method != "anisotropic" and not self.variant_label:
-            raise ValueError("variant_label is required unless method == 'anisotropic'.")
+        if self.method != "isotropic" and not self.variant_label:
+            raise ValueError("variant_label is required unless method == 'isotropic'.")
         self._model_config = MODEL_CONFIG[self.source_id]
         self.input_id = self._model_config["input_id"]  
         self.institution_id = self._model_config["institution_id"] 
 
         self.input_path = self._get_filepath(self.var_input)
-        if self.method == "anisotropic":
+        if self.method == "isotropic":
             self.var_output = self.var_input + '_blur'
         else:
             self.var_output = self.var_input + '_dwblur' # downwind blur
@@ -66,7 +67,7 @@ class ApplyGaussianBlur:
         return file_path
 
     @staticmethod
-    def apply_anisotropic_blur(input_da, species):
+    def apply_isotropic_blur(input_da, species):
         """Apply a Gaussian blurring kernel (filter) to an array with (time/lat/lon)
         for a specific emissions species (CO or NO)
         """
@@ -75,7 +76,7 @@ class ApplyGaussianBlur:
             raise ValueError("species must be 'NO' or 'CO'")
 
         # 1x1.25 degree is ~100 km^2 at midlatitudes
-        L = 1.0 if species == "NO" else 3.0 # (note: we used 2.0 for CO in the _blur files)
+        L = 1.0 if species == "NO" else 2.0 # (note: 3.0 in downwind blur)
 
         output_da = input_da.copy().load()
         output_da = output_da.transpose("time", "lat", "lon") # should already be in this order
@@ -134,7 +135,7 @@ class ApplyGaussianBlur:
         sigma_upwind = 0.6 * L               # gaussian width in up-wind direction (standard deviation)
         L_downwind = 2.5 * L                 # e-folding length in down-wind direction (distance where the value becomes 1/e ≈ 37% of the peak)
         original_frac = 0.5                  # fraction of the original emission field retained after blur (new_field = original_frac * original + (1-original_frac) * blurred)
-        calm_thresh = 0.5                    # threshold for calm winds underwhich we just use an anisotropic kernel
+        calm_thresh = 0.5                    # threshold for calm winds underwhich we just use an isotropic kernel
         r = int(np.ceil(4 * L_downwind))     # kernel radius = truncated to next whole integer that is at most (4 * L_down)
 
         speed = np.hypot(u, v)
@@ -189,8 +190,8 @@ class ApplyGaussianBlur:
             where=weight_sum > 0,
         )
 
-        out = original_frac * field_filled + (1.0 - original_frac) * blurred
-        return out.astype(input_da0.dtype, copy=False)
+        total = original_frac * field_filled + (1.0 - original_frac) * blurred
+        return total.astype(input_da0.dtype, copy=False)
 
     def apply_downwind_blur(self, input_da, species):
         """Apply a non-Gaussian blurring kernel (filter) to an array with (time/lat/lon)
@@ -230,17 +231,17 @@ class ApplyGaussianBlur:
             output_dtypes=[output_da.dtype],
         )
 
-        return blurred.to_dataset(name=self.var_output)
+        return blurred.to_dataset(name=self.var_input)
 
     def compute(self):
         input_ds = xr.open_dataset(self.input_path)
 
-        if self.method == 'anisotropic':
-            output_ds = self.apply_anisotropic_blur(input_ds[self.var_input], self.var_input[0:2])
+        if self.method == 'isotropic':
+            output_ds = self.apply_isotropic_blur(input_ds[self.var_input], self.var_input[0:2])
         elif self.method == 'downwind':
             output_ds = self.apply_downwind_blur(input_ds[self.var_input], self.var_output[0:2])
         else:
-            raise NotImplementedError("only 'anisotropic' or 'downwind' methods supported")
+            raise NotImplementedError("only 'isotropic' or 'downwind' methods supported")
 
         output_ds = output_ds.rename({
             self.var_input : self.var_output
@@ -251,8 +252,8 @@ class ApplyGaussianBlur:
         return output_ds
 
     # Save / skip logic
-    @staticmethod # static methods don't use self, acts like a utility under the class
-    def _exists_and_has_n_timesteps(path, *, time_name="time", expected): # * so that following vars are key-word only
+    @staticmethod 
+    def _exists_and_has_n_timesteps(path, *, time_name="time", expected):
         if not (os.path.exists(path) and os.path.getsize(path) > 0):
             return False
         try:
