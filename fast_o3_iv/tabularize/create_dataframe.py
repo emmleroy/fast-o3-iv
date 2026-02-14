@@ -78,6 +78,17 @@ class CreateDataframe:
         )
         return file_path
 
+    def _open_dataset(self, filepaths):
+        """Open with xr.open_dataset with specific engine
+        """ 
+        engine="h5netcdf" # important!! to avoid binary incompatibility between numpy and netCDF
+
+        ds_raw = xr.open_dataset(
+            filepaths,
+            engine=engine,
+        )
+        return ds_raw
+
     def _assemble_dataset(self, variant_label):
         """Take all variables in variable_set and create an xr.Dataset()
 
@@ -98,7 +109,7 @@ class CreateDataframe:
                     if self.has_chemistry:
                         #print(f"Adding {var}...")   
                         path = self._input_filepath(var, variant_label)
-                        singlevar_ds = xr.open_dataset(path)
+                        singlevar_ds = self._open_dataset(path)
 
                         if singlevar_ds["mda8o3"].attrs.get("units") == "mol/mol":
                             singlevar_ds["mda8o3"] = singlevar_ds["mda8o3"] * 1e9
@@ -114,7 +125,7 @@ class CreateDataframe:
                 for var in variables:
                     #print(f"Adding {var}...")   
                     path = self._input_filepath(var, variant_label)
-                    singlevar_ds = xr.open_dataset(path)
+                    singlevar_ds = self._open_dataset(path)
 
                     # to align pc vars later
                     if template_lat is None:
@@ -128,7 +139,7 @@ class CreateDataframe:
                     #for subvars in pc_variable_sets[var]:
                         #print(f"Adding {subvars}...")
                     path = self._input_filepath(var, variant_label)
-                    singlevar_ds = xr.open_dataset(path)
+                    singlevar_ds = self._open_dataset(path)
 
                     # fix alignment issue
                     singlevar_ds = singlevar_ds.assign_coords(lat=template_lat)
@@ -169,7 +180,7 @@ class CreateDataframe:
                     pipe = ProcessLocVars(
                         institution_id=self.institution_id
                     )
-                    topo_ds = xr.open_dataset(pipe.output_path)
+                    topo_ds = self._open_dataset(pipe.output_path)
                     
                     #print(f"Adding {var}...")
                     multivar_ds[var] = topo_ds[var].broadcast_like(multivar_ds).transpose('time','lat','lon')
@@ -213,7 +224,7 @@ class CreateDataframe:
         
         ds_merged = xr.merge([anomalies, non_anomalies], join="exact", compat="override")
         
-        self._first_member_created == True
+        self._first_member_created = True
         ds_merged.attrs["variant_label"] = self.first_member
         return ds_merged
         
@@ -261,6 +272,7 @@ class CreateDataframe:
 
     def _compute(self, variant_label):
         self.variant_label = variant_label
+        self.output_path = self._get_output_filepath(variant_label)
         output_ds = self.create_ds()
         output_df = self.convert_ds_to_df(output_ds)
 
