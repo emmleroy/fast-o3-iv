@@ -51,7 +51,7 @@ Running a forked test isolates backend stacks per process
 so that we can use two different engines (h5netcdf for CESM2 and netcdf4 for CESM2-WACCM6)
 
 ```
-pytest --forked tests/
+poetry run pytest --forked tests/ 
 ```
 
 ### Step 4. Create features (data/interim --> data/interim)
