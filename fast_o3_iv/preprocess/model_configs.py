@@ -123,12 +123,14 @@ MODEL_CONFIG = {
         "institution_id": "NCAR", 
         "variable_map": CESM2_TO_CMIP6_MAP, 
         "input_id": "input4MIPs",
-        "members": member_set['CESM2']
+        "members": member_set['CESM2'],
+        "has_chemistry": False,
         },
     "CESM2-WACCM6": {
         "institution_id": "NCAR", 
         "variable_map": CESM2_TO_CMIP6_MAP, 
         "input_id": "input4MIPs",
-        "members": member_set['CESM2-WACCM6']
+        "members": member_set['CESM2-WACCM6'],
+        "has_chemistry": True,
         }
 }
