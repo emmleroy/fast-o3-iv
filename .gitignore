@@ -3,7 +3,13 @@ RIVR_dump
 
 # Data
 data
-data_local
+
+# Exploratory notebooks
+notebooks/exploratory/
+
+# Bash scripts
+bash_scripts/*/*.sh
+bash_scripts/*/slurm_output/*
 
 # Figures
 *.png
