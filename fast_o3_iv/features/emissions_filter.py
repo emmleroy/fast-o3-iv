@@ -32,7 +32,6 @@ class ApplyEmissionsFilter:
         self.input_id = self._model_config["input_id"]  
         self.institution_id = self._model_config["institution_id"] 
 
-        self.input_path = self._get_filepath(self.var_input)
         if self.method == "isotropic":
             self.var_output = self.var_input + '_blur'
         else:
@@ -40,10 +39,13 @@ class ApplyEmissionsFilter:
             members_by_exp = self._model_config["members"]
             self.members = members_by_exp[self.experiment_id]
 
+        self.input_path = self._get_filepath(self.var_input)
         self.output_path = self._get_filepath(self.var_output)
 
     def _get_filepath(self, variable):
         if variable in ["ua", "va"]:
+            input_folder = f"{self.variant_label}"
+        elif (self.method=='downwind') and (variable==self.var_output):
             input_folder = f"{self.variant_label}"
         else:
             input_folder = "inputs"
