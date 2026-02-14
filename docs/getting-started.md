@@ -53,6 +53,10 @@ so that we can use two different engines (h5netcdf for CESM2 and netcdf4 for CES
 ```
 poetry run pytest --forked tests/ 
 ```
+or just:
+```
+make test
+```
 
 ### Step 4. Create features (data/interim --> data/interim)
 --> fast_o3_iv/features
