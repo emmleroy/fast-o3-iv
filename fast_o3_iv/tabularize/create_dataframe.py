@@ -8,8 +8,8 @@ import pandas as pd
 
 from fast_o3_iv.config import INTERIM_DATA_DIR, PROCESSED_DATA_DIR
 from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG
-from fast_o3_iv.features.variable_setnames import VARIABLE_SET, pc_variable_sets
 from fast_o3_iv.preprocess.process_loc_vars import ProcessLocVars
+from fast_o3_iv.tabularize.variable_setnames import VARIABLE_SET, pc_variable_sets
 
 @dataclass
 class CreateDataframe:
