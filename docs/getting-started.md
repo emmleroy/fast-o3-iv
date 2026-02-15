@@ -1,9 +1,45 @@
 Getting started
 ===============
 
-### Step 1. Install fast-o3-iv 
 
-TO DO: update this once package is minimally functional
+### Step 0: Clone the repo
+
+```bash
+git clone https://github.com/emmleroy/fast-o3-iv.git
+cd fast-o3-iv
+```
+
+### Step 1: Install `fast-o3-iv`
+
+> **Note:** You can install with either **Makefile commands** or **manual commands**.  
+> Pick one path and follow it end-to-end.
+
+#### Option A: Makefile (recommended)
+
+```bash
+make create_environment
+conda activate fast-o3-iv
+make requirements
+make test
+```
+
+#### Option B: Manual commands
+
+Create environment:
+```bash
+conda create --name fast-o3-iv python=3.11 -y
+conda install -n fast-o3-iv -c conda-forge poetry esmf esmpy xesmf -y
+conda activate fast-o3-iv
+```
+Install dependencies:
+```bash
+poetry config virtualenvs.create false
+poetry install
+```
+Run tests:
+```bash
+poetry run pytest --forked tests/
+```
 
 ### Step 2. Download raw climate model output
 
