@@ -3,7 +3,7 @@
 #################################################################################
 
 SHELL := /bin/bash
-PROJECT_NAME = poetry-runner #fast-o3-iv
+PROJECT_NAME = fast-o3-iv
 PYTHON_VERSION = 3.11
 CONDA = conda
 POETRY = poetry
@@ -23,7 +23,7 @@ create_environment:
 ## Install all dependencies 
 .PHONY: requirements
 requirements:
-	$(CONDA) run -n $(PROJECT_NAME) $(POETRY) config virtualenvs.create false --local
+	$(CONDA) run -n $(PROJECT_NAME) $(POETRY) config virtualenvs.create false
 	$(CONDA) run -n $(PROJECT_NAME) $(POETRY) install
 
 ## One-shot setup
