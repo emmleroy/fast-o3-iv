@@ -140,13 +140,13 @@ class ProcessMetData:
         return xr.decode_cf(ds_keep, decode_times=time_coder)
 
     def _open_selected_years_and_levels(self):
-        """If num files >= num years, assume we have annual files and open one by one
+        """If num files >= 40, assume we have annual files and open one by one
         """
         filepaths = self._glob_all_filepaths()
         if not filepaths:
             raise FileNotFoundError(f"No files matched: {filepaths}")
 
-        if len(filepaths) >= len(self.year_range):
+        if len(filepaths) >= 40:
             parts = []
             for y in self.year_range: # only select annual files in year_range 
                 year_file = self._glob_year_files(y)
@@ -247,6 +247,9 @@ class ProcessMetData:
         # Filter requested years (noteL isn't this repeated?)
         ds2 = ds.sel(time=ds.time.dt.year.isin(self.year_range))
         ds2.attrs.update(dict(ds.attrs))
+
+        if self.level is not None:
+            ds = ds.load()  # faster final write for 2D output
 
         print(f"Ready to save final concatenated file --> {self.out_path}", flush=True) 
 
