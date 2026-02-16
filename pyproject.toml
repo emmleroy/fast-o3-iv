@@ -9,7 +9,7 @@ description = "Fast surrogate modeling for O3 internal variability"
 authors = ["Emmie Le Roy"]
 license = "MIT"
 readme = "README.md"
-packages = [{ include = "fast_o3_iv" }]
+packages = [{ include = "fast_o3_iv", from = "src" }]
 
 [tool.poetry.dependencies]
 python = "~3.11.0"
