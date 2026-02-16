@@ -10,7 +10,8 @@ CESM2_TO_CMIP6_MAP = {
     "U": "ua",
     "V": "va",
     "Z3_500": "zg500",
-    "PS": "ps",
+    "Z3": "zg500", # lazy (need to fix this so that ProcessMetData takes an explicit output_var)
+    "PS" : "ps" # required for 3D vars
 }
 
 
@@ -85,7 +86,7 @@ member_set = {
             #"LE2-1281.007",
             #"LE2-1281.008",
             #"LE2-1281.009",
-            #"LE2-1281.010", 
+            #"LE2-1281.010",
             #"LE2-1301.001",
             #"LE2-1301.002",
             #"LE2-1301.003",
