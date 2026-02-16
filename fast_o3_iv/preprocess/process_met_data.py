@@ -33,12 +33,21 @@ class ProcessMetData:
 
     def __post_init__(self): 
         """Compute derived attributes ("post initialization") """
+
+        # allow numeric pressure interpolation only for CESM2-WACCM6 historical
+        #if self.level not in (None, "surface") and not (
+        #    self.source_id == "CESM2-WACCM6" and self.experiment_id == "historical"
+        #):
+        #    raise ValueError(
+        #        "Pressure-level interpolation is only supported for CESM2-WACCM6 historical for now."
+        #    ) # raise error for now --> need to fix this
+
         self._model_config = MODEL_CONFIG[self.source_id]
         self.variable_map = self._model_config.get("variable_map")
         self.institution_id = self._model_config["institution_id"]  
         self.var_output = self.variable_map.get(self.var_original, self.var_original)
         if self.level not in (None, "surface"):
-            self.level = float(self.level) 
+            self.level = float(self.level)
         self.out_filename = (
             f"{self.institution_id}."
             f"{self.source_id}."
@@ -58,7 +67,7 @@ class ProcessMetData:
         )
 
     # Finding and opening files
-    def _glob_all_filepaths(self):
+    def _glob_all_filepaths(self, variable):
         """Return a glob path for ALL files in data/external specified by the class
         (a glob path is a path with wildcards that can match multiple files/directories)
         """
@@ -66,7 +75,8 @@ class ProcessMetData:
         if (self.source_id == "CESM2-WACCM6") and (self.experiment_id == "historical"):
             suffix = f"atm/hist/{self.variant_label}.cam.h0.*.nc"
         else:
-            suffix = f"{self.var_original}/*.nc"
+            #suffix = f"{self.var_original}/*.nc"
+            suffix = f"{variable}/*.nc"
 
         pattern = (
             EXTERNAL_DATA_DIR
@@ -105,16 +115,16 @@ class ProcessMetData:
     def _required_vars(self):
         """If level is None or 'surface', only return var_original
         otherwise, include extra vars needed for pressure interpolation: 
-        ("PS", "hyam", "hybm", "P0").
+        
+        for CESM2-WACCM6 historical: ("PS", "hyam", "hybm", "P0")
+        for others: return all vars (for now)
 
-        Note! this will break if a 3D field doesn't include these variables.
-        --> we only use this func for CESM2-WACCM6 on our home server (svante)
-        --> for CESM2 we interpolated & sliced on Casper before transferring to svante
         """
-        if self.level is None or self.level == "surface":
+        if self.level in (None, "surface"):
             return [self.var_original]
-        # pressure interpolation needs these
+
         return [self.var_original, "PS", "hyam", "hybm", "P0"]
+
 
     def _open_mfdataset(self, filepaths):
         """Open with xr.open_mfdataset, keep only required vars, then decode cftimes.
@@ -135,14 +145,42 @@ class ProcessMetData:
             decode_times=False,
             engine=engine,
         )
-        ds_keep = ds_raw[self._required_vars()]
+        
+        required_vars = self._required_vars()
+
+        # some formats have PS saved in a different file
+        need_ps = (
+            required_vars is not None
+            and "PS" in required_vars
+            and "PS" not in ds_raw.data_vars
+        )
+
+        if need_ps:
+            filepaths_ps = self._glob_all_filepaths("PS")  # make sure this signature exists
+            if not filepaths_ps:
+                raise FileNotFoundError("PS files not found")
+
+            ds_ps = xr.open_mfdataset(
+                filepaths_ps,
+                combine="nested",
+                concat_dim="time",
+                compat="no_conflicts",
+                data_vars="minimal",
+                decode_times=False,
+                engine=engine,
+            )[["PS"]]
+
+            ds_raw = xr.merge([ds_raw, ds_ps], join="exact", compat="override")
+
+        ds_keep = ds_raw if required_vars is None else ds_raw[required_vars]
+
         time_coder = CFDatetimeCoder(use_cftime=True)
         return xr.decode_cf(ds_keep, decode_times=time_coder)
 
     def _open_selected_years_and_levels(self):
         """If num files >= 40, assume we have annual files and open one by one
         """
-        filepaths = self._glob_all_filepaths()
+        filepaths = self._glob_all_filepaths(self.var_original)
         if not filepaths:
             raise FileNotFoundError(f"No files matched: {filepaths}")
 
@@ -248,8 +286,7 @@ class ProcessMetData:
         ds2 = ds.sel(time=ds.time.dt.year.isin(self.year_range))
         ds2.attrs.update(dict(ds.attrs))
 
-        if self.level is not None:
-            ds = ds.load()  # faster final write for 2D output
+        ds = ds.load()  # faster final write for 2D output
 
         print(f"Ready to save final concatenated file --> {self.out_path}", flush=True) 
 
