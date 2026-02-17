@@ -8,10 +8,10 @@ data
 notebooks/exploratory/
 
 # Bash scripts
-bash_scripts/*/*.sh
-bash_scripts/*/completed_bash_scripts/
-bash_scripts/*/slurm_output/
-bash_scripts/*/slurm_output/*
+*/*/completed_bash_scripts/
+*/*/completed_bash_scripts/*
+*/*/slurm_output/
+*/*/slurm_output/*
 
 # Figures
 *.png
