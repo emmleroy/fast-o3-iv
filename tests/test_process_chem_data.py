@@ -58,7 +58,7 @@ def test_process_chem_data(
         year_range=year_range,
     )
 
-    ds = pipe.compute()
+    ds = pipe._compute()
     ds.close()
 
     captured = capsys.readouterr().out

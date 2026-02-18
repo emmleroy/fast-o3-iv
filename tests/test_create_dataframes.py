@@ -18,7 +18,7 @@ def test_create_dataframes(capsys, model, scenario, var_setname, member, years):
         year_range=years,
     )
 
-    _ = pipe._compute(member)
+    pipe._compute(member)
     captured = capsys.readouterr().out
     institution = pipe.institution_id
 

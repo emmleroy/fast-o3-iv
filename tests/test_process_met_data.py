@@ -22,7 +22,7 @@ def test_process_met_data(capsys, model, scenario, var_original, member, years, 
         level=level,
     )
 
-    ds = pipe.compute()
+    ds = pipe._compute()
     ds.close()
 
     captured = capsys.readouterr().out
