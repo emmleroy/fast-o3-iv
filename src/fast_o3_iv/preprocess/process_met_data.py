@@ -286,7 +286,7 @@ class ProcessMetData:
         ds2 = ds.sel(time=ds.time.dt.year.isin(self.year_range))
         ds2.attrs.update(dict(ds.attrs))
 
-        ds = ds.load()  # faster final write for 2D output
+        ds2 = ds2.load()  # faster final write for 2D output
 
         print(f"Ready to save final concatenated file --> {self.out_path}", flush=True) 
 
