@@ -3,6 +3,7 @@ import os
 
 import xarray as xr 
 
+from fast_o3_iv import utils
 from fast_o3_iv.config import EXTERNAL_DATA_DIR, INTERIM_DATA_DIR
 
 @dataclass
@@ -29,12 +30,12 @@ class ProcessLocVars:
             / self.topo_filename
         )
 
-    def topo_original(self):
+    def _topo_original(self):
         return xr.open_dataset(self.input_path)
 
-    def topo_new(self):
+    def _topo_new(self):
 
-        topo_orig = self.topo_original()
+        topo_orig = self._topo_original()
 
         g = 9.80665
         topo_orig['orog'] = topo_orig['PHIS'] / g
@@ -59,23 +60,19 @@ class ProcessLocVars:
 
         return topo_new
 
-    # Save / skip logic
-    @staticmethod
-    def _exists(path):
-        return os.path.exists(path) and os.path.getsize(path) > 0
-
     def compute_and_save(self, save=True):
-
-        if self._exists(self.output_path):
+        """usage function
+        """
+        if utils.exists(self.output_path):
             print(f"Skipping - file already exists.", 
                   flush=True)
             return self.output_path
 
-        ds = self.topo_new()
+        ds = self._topo_new()
 
         if save:
             os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
             ds.to_netcdf(self.output_path)
             print(f"Wrote processed topo file --> {self.output_path}", flush=True)
-            
+
         return self.output_path

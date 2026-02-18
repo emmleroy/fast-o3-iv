@@ -11,6 +11,7 @@ from geocat.comp.interpolation import interp_hybrid_to_pressure
 from fast_o3_iv.preprocess import calendar_tools
 from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG 
 from fast_o3_iv.config import EXTERNAL_DATA_DIR, INTERIM_DATA_DIR
+from fast_o3_iv import utils
 
 
 @dataclass
@@ -42,9 +43,9 @@ class ProcessMetData:
         #        "Pressure-level interpolation is only supported for CESM2-WACCM6 historical for now."
         #    ) # raise error for now --> need to fix this
 
-        self._model_config = MODEL_CONFIG[self.source_id]
-        self.variable_map = self._model_config.get("variable_map")
-        self.institution_id = self._model_config["institution_id"]  
+        self.model_config = MODEL_CONFIG[self.source_id]
+        self.variable_map = self.model_config.get("variable_map")
+        self.institution_id = self.model_config["institution_id"]  
         self.var_output = self.variable_map.get(self.var_original, self.var_original)
         if self.level not in (None, "surface"):
             self.level = float(self.level)
@@ -75,7 +76,6 @@ class ProcessMetData:
         if (self.source_id == "CESM2-WACCM6") and (self.experiment_id == "historical"):
             suffix = f"atm/hist/{self.variant_label}.cam.h0.*.nc"
         else:
-            #suffix = f"{self.var_original}/*.nc"
             suffix = f"{variable}/*.nc"
 
         pattern = (
@@ -199,7 +199,7 @@ class ProcessMetData:
                 ds_y2 = self._select_vertical_lev(ds_y2)
                 parts.append(ds_y2[self.var_original])
             return xr.concat(parts, dim="time").sortby("time").to_dataset()
-        else:  
+        else:
             # 1. open file
             ds = self._open_mfdataset(filepaths)
             # 2. fix month-start
@@ -271,9 +271,8 @@ class ProcessMetData:
                     raise NotImplementedError(
                         f"{dim} has size {ds.sizes[dim]} (expected 1).")
         return ds
-
-    # Usage function
-    def compute(self):
+  
+    def _compute(self):
         ds = self._open_selected_years_and_levels()
         ds = self._drop_single_vertical_dim(ds)
 
@@ -292,30 +291,19 @@ class ProcessMetData:
 
         return ds2
 
-    # Save / skip logic
-    @staticmethod # static methods don't use self, acts like a utility under the class
-    def _exists_and_has_n_timesteps(path, *, time_name="time", expected): # * so that following vars are key-word only
-        if not (os.path.exists(path) and os.path.getsize(path) > 0):
-            return False
-        try:
-            with xr.open_dataset(path, decode_cf=False, engine="netcdf4") as ds:
-                return int(ds.sizes.get(time_name, 0)) == expected
-        except Exception:
-            return False
-
     def compute_and_save(self, save=True):
-
+        """Usage function
+        """
         expected = 12 * len(self.year_range)
-        if self._exists_and_has_n_timesteps(self.out_path, expected=expected):
-            print(f"Skipping - file already exists and has {expected} timesteps.", 
+        if utils.has_expected_data(self.out_path, expected):
+            print(f"Skipping {self.out_path} already exists and has {expected} timesteps.",
                   flush=True)
             return self.out_path
 
-        ds = self.compute()
+        ds = self._compute()
 
         if save:
             os.makedirs(os.path.dirname(self.out_path), exist_ok=True)
             ds.to_netcdf(self.out_path)
             print(f"Wrote final concatenated file --> {self.out_path}", flush=True)
-            
         return self.out_path

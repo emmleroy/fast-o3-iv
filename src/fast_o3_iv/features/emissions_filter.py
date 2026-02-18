@@ -8,11 +8,11 @@ from scipy import ndimage as ndi
 
 from fast_o3_iv.config import EXTERNAL_DATA_DIR, INTERIM_DATA_DIR
 from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG
-
+from fast_o3_iv import utils
 
 @dataclass 
 class ApplyEmissionsFilter:
-    """Apply anisotropic Gaussian blurring kernel to the emission fields (NOx or CO)
+    """Apply blurring kernel to the emission fields (NOx or CO)
 
     note: this only takes model-specific inputs (emission files from input4MIPs that have 
     already been regridded and pre-processed to match a specific model)
@@ -235,7 +235,7 @@ class ApplyEmissionsFilter:
 
         return blurred.to_dataset(name=self.var_input)
 
-    def compute(self):
+    def _compute(self):
         input_ds = xr.open_dataset(self.input_path)
 
         if self.method == 'isotropic':
@@ -253,29 +253,20 @@ class ApplyEmissionsFilter:
 
         return output_ds
 
-    # Save / skip logic
-    @staticmethod 
-    def _exists_and_has_n_timesteps(path, *, time_name="time", expected):
-        if not (os.path.exists(path) and os.path.getsize(path) > 0):
-            return False
-        try:
-            with xr.open_dataset(path, decode_cf=False, engine="netcdf4") as ds:
-                return int(ds.sizes.get(time_name, 0)) == expected
-        except Exception:
-            return False
-
     def compute_and_save(self, save=True):
+        """usage function
+        """
         expected = 12 * len(self.year_range)
-        if self._exists_and_has_n_timesteps(self.output_path, expected=expected):
+        if utils.has_expected_data(self.output_path, expected):
             print(f"Skipping - {self.output_path} already exists and has {expected} timesteps.", 
                   flush=True)
             return self.output_path
 
-        ds = self.compute()
+        ds = self._compute()
 
         if save:
             os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
             ds.to_netcdf(self.output_path)
             print(f"Wrote final concatenated file --> {self.output_path}", flush=True)
-            
+
         return self.output_path

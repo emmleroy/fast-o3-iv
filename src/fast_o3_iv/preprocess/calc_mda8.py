@@ -9,6 +9,8 @@ from xarray.coders import CFDatetimeCoder
 from fast_o3_iv.preprocess import calendar_tools
 from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG 
 from fast_o3_iv.config import EXTERNAL_DATA_DIR, INTERIM_DATA_DIR
+from fast_o3_iv import utils
+
 
 @dataclass
 class ProcessMDA8O3:
@@ -176,17 +178,6 @@ class ProcessMDA8O3:
     def _concat(yearly):
         return xr.concat(yearly, dim="time").sortby("time")
 
-     # Save / skip logic
-    @staticmethod # static methods don't use self, acts like a utility under the class
-    def _exists_and_has_n_timesteps(path, *, time_name="time", expected): # * so that following vars are key-word only
-        if not (os.path.exists(path) and os.path.getsize(path) > 0):
-            return False
-        try:
-            with xr.open_dataset(path, decode_cf=False, engine="netcdf4") as ds:
-                return int(ds.sizes.get(time_name, 0)) == expected
-        except Exception:
-            return False
-
     def compute(self):
         """if CESM2-WACCM6 historical: process and save yearly files
         if CESM2-WACCM6 ssp scenario: process and save multi-year files
@@ -197,7 +188,7 @@ class ProcessMDA8O3:
             for year in self.year_range:
                 outpath = self._subset_outfile(year)
                 expected = 12
-                if self._exists_and_has_n_timesteps(outpath, expected=expected):
+                if utils.has_expected_data(outpath, expected):
                     print(f"Skipping {year} --> file already exists and has {expected} timesteps.", flush=True)
                 else:
                     print(f"Processing {year}", flush=True)
@@ -216,7 +207,7 @@ class ProcessMDA8O3:
             for idx, year_group in enumerate(year_groups):
                 outpath = self._subset_outfile(year_group)
                 expected = 12 * 10
-                if self._exists_and_has_n_timesteps(outpath, expected=expected):
+                if utils.has_expected_data(outpath, expected):
                     print(f"Skipping {year_group} --> file already exists and has {expected} timesteps.", flush=True)
                 else:
                     print(f"Processing {year_group}", flush=True)
@@ -226,10 +217,9 @@ class ProcessMDA8O3:
         else:
             raise NotImplementedError("only CESM2-WACCM6 historical and ssp245 supported for now")
 
-
     def concat_saved(self):
         if self.source_id == "CESM2-WACCM6" and self.experiment_id == "historical":
-            filepaths = [self._subset_outfile(year) for year in sorted(self.year_range)] 
+            filepaths = [self._subset_outfile(year) for year in sorted(self.year_range)]
         elif self.source_id == "CESM2-WACCM6" and self.experiment_id == "ssp245" and self.year_range == range(2015,2055):
             year_groups = [
                 "2015-2024",
@@ -237,21 +227,21 @@ class ProcessMDA8O3:
                 "2035-2044",
                 "2045-2054"
             ]
-            filepaths = [self._subset_outfile(year_group) for year_group in year_groups] 
+            filepaths = [self._subset_outfile(year_group) for year_group in year_groups]
         else:
             raise NotImplementedError("only CESM2-WACCM6 historical and ssp245 supported for now")
         ds = xr.open_mfdataset(
-            filepaths, 
+            filepaths,
             combine="nested", concat_dim="time",
             data_vars="minimal", coords="minimal",
-            compat="override", decode_times=False, 
-            engine="netcdf4", 
-            ) 
+            compat="override", decode_times=False,
+            engine="netcdf4",
+            )
         
         expected = 12 * len(self.year_range)
-        if self._exists_and_has_n_timesteps(self.out_path, expected=expected):
+        if utils.has_expected_data(self.out_path, expected):
             print(f"Skipping {self.out_path} --> file already exists and has {expected} timesteps.", flush=True)
         else:
             os.makedirs(os.path.dirname(self.out_path), exist_ok=True)
-            ds.to_netcdf(self.out_path) 
+            ds.to_netcdf(self.out_path)
             print(f"Wrote final concatenated file --> {self.out_path}", flush=True)

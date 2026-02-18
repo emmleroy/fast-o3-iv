@@ -11,6 +11,8 @@ from fast_o3_iv.preprocess import calendar_tools
 from fast_o3_iv.config import EXTERNAL_DATA_DIR, INTERIM_DATA_DIR
 from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG 
 from fast_o3_iv.preprocess import regrid
+from fast_o3_iv import utils
+
 
 @dataclass
 class ProcessChemData:
@@ -140,7 +142,7 @@ class ProcessChemData:
             ds_interp = ds
         return ds_interp
 
-    def target_grid(self):
+    def _target_grid(self):
         grid_filename = (
             f"{self.institution_id}."
             f"{self.target_source_id}."
@@ -163,47 +165,30 @@ class ProcessChemData:
 
         return output_grid
 
-    # Usage function
-    def compute(self):
+    def _compute(self):
 
         # 0. open file
         ds0 = self._open_file_and_rename_vars()
-
         # 1. optionally linearly interpolate
         ds1 = self._linearly_interpolate(ds0)
-
         # 2. select years
         ds2 = ds1.sel(time=ds1.time.dt.year.isin(list(self.year_range)))
-
         # 3. regrid to target grid
-        target_grid = self.target_grid()
+        target_grid = self._target_grid()
         ds3 = regrid.regrid(ds2, target_grid, convert_calendar=True)
-
-
         print(f"Ready to save final concatenated file --> {self.out_path}", flush=True) 
-
         return ds3
 
-    # Save / skip logic
-    @staticmethod # a static method is bound to the class, but doesn't modify the class state
-    def _exists_and_has_n_timesteps(path, *, time_name="time", expected): # * so that following vars are key-word only
-        if not (os.path.exists(path) and os.path.getsize(path) > 0):
-            return False
-        try:
-            with xr.open_dataset(path, decode_cf=False, engine="netcdf4") as ds:
-                return int(ds.sizes.get(time_name, 0)) == expected
-        except Exception:
-            return False
-
     def compute_and_save(self, save=True):
-
+        """usage function
+        """
         expected = 12 * len(self.year_range)
-        if self._exists_and_has_n_timesteps(self.out_path, expected=expected):
-            print(f"Skipping - file already exists and has {expected} timesteps.", 
+        if utils.has_expected_data(self.out_path, expected):
+            print(f"Skipping - {self.out_path} already exists and has {expected} timesteps.", 
                   flush=True)
             return self.out_path
 
-        ds = self.compute()
+        ds = self._compute()
 
         if save:
             os.makedirs(os.path.dirname(self.out_path), exist_ok=True)
@@ -211,4 +196,3 @@ class ProcessChemData:
             print(f"Wrote final concatenated file --> {self.out_path}", flush=True)
             
         return self.out_path
-        

@@ -11,7 +11,7 @@ from eofs.xarray import Eof
 
 from fast_o3_iv.config import INTERIM_DATA_DIR
 from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG
-
+from fast_o3_iv import utils
 
 @dataclass 
 class ApplyPCReduction:
@@ -198,22 +198,13 @@ class ApplyPCReduction:
         print(f"Ready to save PCs file --> {output_path}", flush=True) 
         return output_ds
 
-    # Save / skip logic
-    @staticmethod 
-    def _exists_and_has_n_timesteps(path, *, time_name="time", expected): 
-        if not (os.path.exists(path) and os.path.getsize(path) > 0):
-            return False
-        try:
-            with xr.open_dataset(path, decode_cf=False, engine="netcdf4") as ds:
-                return int(ds.sizes.get(time_name, 0)) == expected
-        except Exception:
-            return False
-
     def compute_and_save(self, variant_label, save=True):
+        """usage function
+        """
         expected = 12 * len(self.year_range)
         output_path = self.output_path_for(variant_label)
-        if self._exists_and_has_n_timesteps(output_path, expected=expected):
-            print(f"Skipping - {output_path} already exists and has {expected} timesteps.", 
+        if utils.has_expected_data(output_path, expected):
+            print(f"Skipping - {output_path} already exists and has {expected} timesteps.",
                   flush=True)
             return output_path
 
