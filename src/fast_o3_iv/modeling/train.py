@@ -1,8 +1,9 @@
-from dataclasses import dataclass, asdict
-
+import os
 import joblib
+from joblib import Parallel, delayed
 from pathlib import Path
 from typing import Sequence
+from dataclasses import dataclass, asdict
 
 import mlflow
 import numpy as np
@@ -12,14 +13,16 @@ from sklearn import set_config
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import RobustScaler # scaling method
+from sklearn.base import clone
 
 from fast_o3_iv.config import PROJ_ROOT, PROCESSED_DATA_DIR
-from fast_o3_iv.config import MLFLOW_TRACKING_DIR, MLFLOW_TRACKING_URI
+from fast_o3_iv.config import MLFLOW_TRACKING_URI, MODELS_DIR
 from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG
 from fast_o3_iv.tabularize.variable_setnames import VARIABLE_SET, pc_variable_sets
 from fast_o3_iv.features.transforms import CyclicTransformer
 
 set_config(transform_output="pandas")
+
 
 @dataclass 
 class DatasetConfig:
@@ -34,11 +37,14 @@ class DatasetConfig:
         self.institution_id = self._model_config["institution_id"]
         self.variable_set = VARIABLE_SET[self.variable_setname]
 
+
 class TrainPipeline:
-    def __init__(self, stat_model, run_name, config: DatasetConfig):
+    def __init__(self, stat_model, run_name, config: DatasetConfig, is_test=False):
         self.stat_model = stat_model
         self.run_name = run_name
         self.config = config
+
+        self.is_test = is_test
 
         # derived attrs
         self.target = config.variable_set['target'][0]
@@ -55,7 +61,6 @@ class TrainPipeline:
         if experiment is None:
             mlflow.create_experiment(
                 name="fast-o3-iv",
-                artifact_location=MLFLOW_TRACKING_DIR
             )
         mlflow.set_experiment("fast-o3-iv")
 
@@ -82,6 +87,10 @@ class TrainPipeline:
         return file_path 
 
     def _get_model_filepath(self):
+        if self.is_test:
+            suffix = ".TEST"
+        else:
+            suffix = ""
         file_name = (
             f"{self.config.institution_id}."
             f"{self.config.source_id}."
@@ -90,11 +99,10 @@ class TrainPipeline:
             f"{self.config.variable_setname}."
             "model."
             f"{self.config.year_range[0]}-{self.config.year_range[-1]}."
-            f"{self.run_name}.joblib"
+            f"{self.run_name}{suffix}.joblib"
         )
         file_path = (
-            PROJ_ROOT
-            / "models"
+            MODELS_DIR
             / self.config.institution_id
             / self.config.source_id
             / self.config.cmip_experiment_id
@@ -110,28 +118,19 @@ class TrainPipeline:
         df = pd.read_parquet(file_path)
         return df
 
-    def fit_globally(self, is_test=False):
+    def fit_globally(self):
         """Fit a single model across all grid cells
         """
 
         with mlflow.start_run(run_name=self.run_name) as run:
             run_id = run.info.run_id
 
-            # save the config inputs
-            mlflow.log_params(asdict(self.config))
-            mlflow.log_params({
-                "is_test" : is_test,
-                "model_type": self.stat_model.__class__.__name__,
-            })
-
             df = self.load_training_df()
 
-            if is_test:
+            if self.is_test:
                 print("Testing on a small subset of df", flush=True)
                 df_test = df.copy()
                 df = df_test[ (df_test['lat'] - 20.0).abs() < 1 ] # test on subset
-            else:
-                df = df.copy()
 
             X = df.loc[:, self.features]
             y = df.loc[:, self.target].to_numpy()
@@ -156,24 +155,124 @@ class TrainPipeline:
             # fit the model
             pipeline.fit(X, y)
 
-            # log model
-            mlflow.sklearn.log_model(sk_model=pipeline, name="model")
+            ########### mlflow logging ###########
+            # 1. input data configs
+            mlflow.log_params(asdict(self.config))
+
+            # 2. model type
+            mlflow.log_params({
+                "model_type": self.stat_model.__class__.__name__,
+            })
+
+            # 3. is_test
+            mlflow.set_tag("is_test", str(self.is_test))
+
+            # 4. model path (manual save instead of using mlflow model logging - maybe change this?)
+            final_path = self._get_model_filepath()
+            mlflow.log_param("local_disk_path", str(final_path))
+            #######################################
 
             return {
                 "pipeline": pipeline,
-                "mlflow_run_id": run_id
             }
-    
-    def train_and_save_model(self, is_test=False, save=True):
+
+    def fit_locally(self):
+        """Fit a unique model per grid cell in parallel, 
+        then log the collection as one artifact in MLflow.
+        """
+        with mlflow.start_run(run_name=self.run_name) as run:
+            run_id = run.info.run_id
+
+            df = self.load_training_df()
+            
+            if self.is_test:
+                print("Testing on a small subset of df", flush=True)
+                df_test = df.copy()
+                df = df_test[ (df_test['lat'] - 20.0).abs() < 1 ] # test on subset
+
+            # group by lat/lon
+            groups = df.groupby(["lat", "lon"], sort=False)
+            print(f"Parallelizing fit over {len(groups)} cells using {os.cpu_count()} CPUs...")
+
+            # use Joblib to fit in parallel
+            n_cpus = int(os.getenv("SLURM_CPUS_PER_TASK", "1"))
+            cell_models_list = Parallel(n_jobs=n_cpus)( # gdf = group dataframe
+                delayed(self._fit_single_cell_with_progress)(key, gdf) 
+                for key, gdf in groups
+            )
+
+            # map results back to (lat, lon) keys
+            cell_models = dict(zip(groups.groups.keys(), cell_models_list))
+
+            ########### mlflow logging ###########
+            # 1. input data configs
+            mlflow.log_params(asdict(self.config))
+
+            # 2. model type
+            mlflow.log_params({
+                "model_type": self.stat_model.__class__.__name__,
+            })
+
+            # 3. is_test
+            mlflow.set_tag("is_test", str(self.is_test))
+
+            # 4. model path (manual save instead of using mlflow model logging - maybe change this?)
+            final_path = self._get_model_filepath()
+            mlflow.log_param("local_disk_path", str(final_path))
+            #######################################
+
+            return {
+                "pipeline_collection": cell_models,
+            }
+
+    def _fit_single_cell(self, cell_df):
+        """scikit-learn logic for one cell"""
+        X = cell_df.loc[:, self.features]
+        y = cell_df.loc[:, self.target].to_numpy()
+
+        # Month cyclic only (as per your local script)
+        # pre-processing steps
+        pre = ColumnTransformer(
+            transformers=[
+            ("month_cyc", CyclicTransformer("month", period=12, drop_original=True), ["month"]),
+        ],
+            remainder="passthrough",
+            verbose_feature_names_out=False,  
+        ).set_output(transform="pandas")
+
+        pipeline = Pipeline([
+            ("pre", pre),
+            ("scaler", RobustScaler()),
+            ("model", clone(self.stat_model)) # each cell gets own copy of the model
+        ]).set_output(transform="pandas")
+
+        return pipeline.fit(X, y)
+
+    def _fit_single_cell_with_progress(self, key, gdf):
+        """Wrapper to call fit and print progress for a specific lat/lon"""
+        result = self._fit_single_cell(gdf)
+        # Flush=True is crucial for Slurm logs to update in real-time
+        print(f"Completed group {key}", flush=True)
+        return result
+
+    def train_and_save_model(self, save=True):
         out_path = self._get_model_filepath()
-        results = None
+        core_model = None
 
         if "global" in self.run_name:
-            results = self.fit_globally(is_test=is_test)
+            core_model = self.fit_globally()
+            save_obj = core_model["pipeline"]
 
-        print(f"Ready to save model --> {self.run_name} --> {out_path}")
+        elif "local" in self.run_name:
+            core_model = self.fit_locally()
+            save_obj = core_model["pipeline_collection"]
+        
+        else:
+            raise AttributeError("run_name must include 'global' or 'local' ")
+        print(f"Ready to save model --> {self.run_name} --> {out_path}", flush=True)
 
-        if save and results is not None:
+        if save and save_obj is not None:
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            joblib.dump(results, out_path)
+            joblib.dump(save_obj, out_path)
+            print(f"Model saved --> {self.run_name}", flush=True)
 
