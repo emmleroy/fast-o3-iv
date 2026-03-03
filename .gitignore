@@ -17,6 +17,13 @@ notebooks/exploratory/
 # Figures
 *.png
 
+# MLflow tracking
+mlflow.db
+mlflow_artifacts/
+
+# Also ignore your manual model saves if you haven't already
+models/
+
 # Mac OS-specific storage files
 .DS_Store
 
