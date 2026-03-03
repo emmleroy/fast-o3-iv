@@ -7,10 +7,9 @@ from pathlib import Path
 PROJ_ROOT = Path(__file__).resolve().parents[2]
 
 DATA_DIR = PROJ_ROOT / "data"
-RAW_DATA_DIR = DATA_DIR / "raw"
+EXTERNAL_DATA_DIR = DATA_DIR / "external"
 INTERIM_DATA_DIR = DATA_DIR / "interim"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
-EXTERNAL_DATA_DIR = DATA_DIR / "external"
 
 MODELS_DIR = PROJ_ROOT / "models"
 
