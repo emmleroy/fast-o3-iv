@@ -1,24 +1,25 @@
+from dataclasses import dataclass, asdict
 import os
+from typing import Sequence
+
 import joblib
 from joblib import Parallel, delayed
-from typing import Sequence
-from dataclasses import dataclass, asdict
-
 import mlflow
+import numpy as np
 import pandas as pd
-
 from sklearn import set_config
-from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import RobustScaler # scaling method
 from sklearn.base import clone
+from sklearn.compose import ColumnTransformer
+from sklearn.metrics import mean_squared_error
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import RobustScaler # scaling method
 
 from fast_o3_iv.config import PROCESSED_DATA_DIR
 from fast_o3_iv.config import MLFLOW_TRACKING_URI, MODELS_DIR
-from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG
-from fast_o3_iv.tabularize.variable_setnames import VARIABLE_SET, pc_variable_sets
 from fast_o3_iv.features.transforms import CyclicTransformer
 from fast_o3_iv.modeling.statmodel_registry import STATMODEL_REGISTRY
+from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG
+from fast_o3_iv.tabularize.variable_setnames import VARIABLE_SET, pc_variable_sets
 
 set_config(transform_output="pandas")
 
@@ -59,6 +60,14 @@ class TrainPipeline:
             for sub_item in (pc_variable_sets[item] if item in pc_variable_sets else [item])
         ]
 
+        # check that variable sets are correct
+        if "global" in self.model_key:
+            if "location_variables" not in config.variable_set.keys():
+                raise ValueError("for global training, variable_set should have location vars")
+        elif "local" in self.model_key:
+            if "location_variables" in config.variable_set.keys():
+                raise ValueError("for local training, variable_set does not need location vars")
+
         mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
         experiment = mlflow.get_experiment_by_name("fast-o3-iv")
         if experiment is None:
@@ -87,7 +96,7 @@ class TrainPipeline:
             / self.config.variable_setname
             / file_name
         )
-        return file_path 
+        return file_path
 
     def _get_model_filepath(self):
         file_name = (
@@ -126,7 +135,12 @@ class TrainPipeline:
             if self.is_test:
                 print("Testing on a small subset of df", flush=True)
                 df_test = df.copy()
-                df = df_test[ (df_test['lat'] - 20.0).abs() < 1 ] # test on subset
+                keys = (
+                    df_test[["lat", "lon"]]
+                    .drop_duplicates()
+                    .sample(n=4, random_state=42)
+                )
+                df = df_test.merge(keys, on=["lat", "lon"], how="inner")
 
             X = df.loc[:, self.features]
             y = df.loc[:, self.target].to_numpy()
@@ -151,6 +165,10 @@ class TrainPipeline:
             # fit the model
             pipeline.fit(X, y)
 
+            # training metrics
+            y_pred = pipeline.predict(X)
+            rmse = float(np.sqrt(mean_squared_error(y, y_pred)))
+
             ########### mlflow logging ###########
             # 1. input data configs
             mlflow.log_params(asdict(self.config))
@@ -167,6 +185,12 @@ class TrainPipeline:
             if save:
                 final_path = self._get_model_filepath()
                 mlflow.log_param("local_disk_path", str(final_path))
+
+            # 5. save training metrics
+            # note! these are NOT our selection metrics (area-weighted mean in populated grid cells
+            # after per-cell predictions) -- we just internally track this to compare within-model 
+            # diagnostics (train vs val), not for model comparison/model selection (e.g., global vs local)
+            mlflow.log_metric("train_rmse_global_unweighted", float(rmse))
             #######################################
 
             return {
@@ -183,21 +207,29 @@ class TrainPipeline:
             if self.is_test:
                 print("Testing on a small subset of df", flush=True)
                 df_test = df.copy()
-                df = df_test[ (df_test['lat'] - 20.0).abs() < 1 ] # test on subset
+                keys = (
+                    df_test[["lat", "lon"]]
+                    .drop_duplicates()
+                    .sample(n=4, random_state=42)
+                )
+                df = df_test.merge(keys, on=["lat", "lon"], how="inner")
 
             # group by lat/lon
             groups = df.groupby(["lat", "lon"], sort=False)
-            print(f"Parallelizing fit over {len(groups)} cells using {os.cpu_count()} CPUs...")
 
             # use Joblib to fit in parallel
-            n_cpus = int(os.getenv("SLURM_CPUS_PER_TASK", "1"))
-            cell_models_list = Parallel(n_jobs=n_cpus)( # gdf = group dataframe
-                delayed(self._fit_single_cell_with_progress)(key, gdf) 
+            n_cpus = int(os.getenv("SLURM_CPUS_PER_TASK", str(os.cpu_count() or 1)))
+            print(f"Parallelizing fit over {len(groups)} cells using {n_cpus} CPUs...")
+            results = Parallel(n_jobs=n_cpus)(
+                delayed(self._fit_single_cell_with_progress)(key, gdf)
                 for key, gdf in groups
             )
 
             # map results back to (lat, lon) keys
-            cell_models = dict(zip(groups.groups.keys(), cell_models_list))
+            cell_models = {key: pipe for key, pipe, _ in results}
+
+            # aggregate RMSE only for logging
+            rmses = np.array([rmse for _, _, rmse in results], dtype=float)
 
             ########### mlflow logging ###########
             # 1. input data configs
@@ -215,6 +247,13 @@ class TrainPipeline:
             if save:
                 final_path = self._get_model_filepath()
                 mlflow.log_param("local_disk_path", str(final_path))
+
+            # 5. save training metrics
+            # note! these are NOT our selection metrics (area-weighted mean in populated grid cells
+            # after per-cell predictions) -- we just internally track this to compare within-model 
+            # diagnostics (train vs val), not for model comparison/model selection (e.g., global vs local)
+            mlflow.log_metric("train_rmse_local_mean_unweighted", float(rmses.mean()))
+            mlflow.log_metric("train_rmse_local_median_unweighted", float(np.median(rmses)))
             #######################################
 
             return {
@@ -222,11 +261,9 @@ class TrainPipeline:
             }
 
     def _fit_single_cell(self, cell_df):
-        """scikit-learn logic for one cell"""
         X = cell_df.loc[:, self.features]
         y = cell_df.loc[:, self.target].to_numpy()
 
-        # Month cyclic only (as per your local script)
         # pre-processing steps
         pre = ColumnTransformer(
             transformers=[
@@ -242,14 +279,17 @@ class TrainPipeline:
             ("model", clone(self.stat_model)) # each cell gets own copy of the model
         ]).set_output(transform="pandas")
 
-        return pipeline.fit(X, y)
+        pipeline.fit(X, y)
+
+        y_pred = pipeline.predict(X)
+        rmse = float(np.sqrt(mean_squared_error(y, y_pred)))
+
+        return pipeline, rmse
 
     def _fit_single_cell_with_progress(self, key, gdf):
-        """Wrapper to call fit and print progress for a specific lat/lon"""
-        result = self._fit_single_cell(gdf)
-        # Flush=True is crucial for Slurm logs to update in real-time
+        pipe, rmse = self._fit_single_cell(gdf)
         print(f"Completed group {key}", flush=True)
-        return result
+        return key, pipe, rmse
 
     def train_and_save_model(self, save=True):
         out_path = self._get_model_filepath()
@@ -264,7 +304,7 @@ class TrainPipeline:
             save_obj = core_model["pipeline_collection"]
         
         else:
-            raise AttributeError("model_key must include 'global' or 'local' ")
+            raise ValueError("model_key must include 'global' or 'local' ")
         print(f"Ready to save model --> {self.run_name} --> {out_path}", flush=True)
 
         if save and save_obj is not None:
