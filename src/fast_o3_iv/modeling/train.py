@@ -1,12 +1,10 @@
 import os
 import joblib
 from joblib import Parallel, delayed
-from pathlib import Path
 from typing import Sequence
 from dataclasses import dataclass, asdict
 
 import mlflow
-import numpy as np
 import pandas as pd
 
 from sklearn import set_config
@@ -15,11 +13,12 @@ from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import RobustScaler # scaling method
 from sklearn.base import clone
 
-from fast_o3_iv.config import PROJ_ROOT, PROCESSED_DATA_DIR
+from fast_o3_iv.config import PROCESSED_DATA_DIR
 from fast_o3_iv.config import MLFLOW_TRACKING_URI, MODELS_DIR
 from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG
 from fast_o3_iv.tabularize.variable_setnames import VARIABLE_SET, pc_variable_sets
 from fast_o3_iv.features.transforms import CyclicTransformer
+from fast_o3_iv.modeling.statmodel_registry import STATMODEL_REGISTRY
 
 set_config(transform_output="pandas")
 
@@ -39,8 +38,12 @@ class DatasetConfig:
 
 
 class TrainPipeline:
-    def __init__(self, stat_model, run_name, config: DatasetConfig, is_test=False):
-        self.stat_model = stat_model
+    def __init__(self, model_key, run_name, config: DatasetConfig, is_test=False):
+        
+        statmodel_info = STATMODEL_REGISTRY[model_key]
+        self.model_key = model_key
+        self.stat_model = clone(statmodel_info["model_obj"])
+
         self.run_name = run_name
         self.config = config
 
@@ -87,10 +90,6 @@ class TrainPipeline:
         return file_path 
 
     def _get_model_filepath(self):
-        if self.is_test:
-            suffix = ".TEST"
-        else:
-            suffix = ""
         file_name = (
             f"{self.config.institution_id}."
             f"{self.config.source_id}."
@@ -99,7 +98,7 @@ class TrainPipeline:
             f"{self.config.variable_setname}."
             "model."
             f"{self.config.year_range[0]}-{self.config.year_range[-1]}."
-            f"{self.run_name}{suffix}.joblib"
+            f"{self.run_name}.joblib"
         )
         file_path = (
             MODELS_DIR
@@ -118,13 +117,10 @@ class TrainPipeline:
         df = pd.read_parquet(file_path)
         return df
 
-    def fit_globally(self):
+    def fit_globally(self, save=True):
         """Fit a single model across all grid cells
         """
-
-        with mlflow.start_run(run_name=self.run_name) as run:
-            run_id = run.info.run_id
-
+        with mlflow.start_run(run_name=self.run_name):
             df = self.load_training_df()
 
             if self.is_test:
@@ -149,7 +145,7 @@ class TrainPipeline:
             pipeline = Pipeline([
                 ("pre",    pre),
                 ("scaler", RobustScaler()),
-                ("model",  self.stat_model),
+                ("model",  clone(self.stat_model)),
             ]).set_output(transform="pandas")
 
             # fit the model
@@ -168,21 +164,20 @@ class TrainPipeline:
             mlflow.set_tag("is_test", str(self.is_test))
 
             # 4. model path (manual save instead of using mlflow model logging - maybe change this?)
-            final_path = self._get_model_filepath()
-            mlflow.log_param("local_disk_path", str(final_path))
+            if save:
+                final_path = self._get_model_filepath()
+                mlflow.log_param("local_disk_path", str(final_path))
             #######################################
 
             return {
                 "pipeline": pipeline,
             }
 
-    def fit_locally(self):
+    def fit_locally(self, save=True):
         """Fit a unique model per grid cell in parallel, 
         then log the collection as one artifact in MLflow.
         """
-        with mlflow.start_run(run_name=self.run_name) as run:
-            run_id = run.info.run_id
-
+        with mlflow.start_run(run_name=self.run_name):
             df = self.load_training_df()
             
             if self.is_test:
@@ -217,8 +212,9 @@ class TrainPipeline:
             mlflow.set_tag("is_test", str(self.is_test))
 
             # 4. model path (manual save instead of using mlflow model logging - maybe change this?)
-            final_path = self._get_model_filepath()
-            mlflow.log_param("local_disk_path", str(final_path))
+            if save:
+                final_path = self._get_model_filepath()
+                mlflow.log_param("local_disk_path", str(final_path))
             #######################################
 
             return {
@@ -259,16 +255,16 @@ class TrainPipeline:
         out_path = self._get_model_filepath()
         core_model = None
 
-        if "global" in self.run_name:
-            core_model = self.fit_globally()
+        if "global" in self.model_key:
+            core_model = self.fit_globally(save=save)
             save_obj = core_model["pipeline"]
 
-        elif "local" in self.run_name:
-            core_model = self.fit_locally()
+        elif "local" in self.model_key:
+            core_model = self.fit_locally(save=save)
             save_obj = core_model["pipeline_collection"]
         
         else:
-            raise AttributeError("run_name must include 'global' or 'local' ")
+            raise AttributeError("model_key must include 'global' or 'local' ")
         print(f"Ready to save model --> {self.run_name} --> {out_path}", flush=True)
 
         if save and save_obj is not None:
