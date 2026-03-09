@@ -50,7 +50,6 @@ class TrainPipeline:
         self.model_key = model_key
         self.stat_model = clone(statmodel_info["model_obj"])
 
-        self.run_name = self.model_key + '-' + config.cmip_experiment_id
         self.config = config
 
         self.is_test = is_test
@@ -83,12 +82,12 @@ class TrainPipeline:
             )
         mlflow.set_experiment("fast-o3-iv")
 
-    def _get_train_df_filepath(self):
+    def _get_df_filepath(self, member):
         file_name = (
             f"{self.config.institution_id}."
             f"{self.config.source_id}."
             f"{self.config.cmip_experiment_id}."
-            f"{self.training_member}."
+            f"{member}."
             f"{self.config.variable_setname}."
             "model_inputs."
             f"{self.config.year_range[0]}-{self.config.year_range[-1]}.parquet"
@@ -99,7 +98,7 @@ class TrainPipeline:
             / self.config.institution_id
             / self.config.source_id
             / self.config.cmip_experiment_id
-            / self.training_member
+            / member
             / self.config.variable_setname
             / file_name
         )
@@ -128,16 +127,18 @@ class TrainPipeline:
 
         return file_path
 
-    def load_training_df(self):
-        file_path = self._get_train_df_filepath()
+    def _load_df(self, member):
+        file_path = self._get_df_filepath(member)
         df = pd.read_parquet(file_path)
         return df
 
     def fit_globally(self, save=True):
         """Fit a single model across all grid cells
         """
-        with mlflow.start_run(run_name=self.run_name):
-            df = self.load_training_df()
+        run_name = self.model_key + '-' + self.config.cmip_experiment_id
+        with mlflow.start_run(run_name=run_name):
+            member = self.training_member
+            df = self._load_df(member)
 
             if self.is_test:
                 print("Testing on a small subset of df", flush=True)
@@ -208,8 +209,11 @@ class TrainPipeline:
         """Fit a unique model per grid cell in parallel, 
         then log the collection as one artifact in MLflow.
         """
-        with mlflow.start_run(run_name=self.run_name):
-            df = self.load_training_df()
+
+        run_name = self.model_key + '-' + self.config.cmip_experiment_id
+        with mlflow.start_run(run_name=run_name):
+            member = self.training_member
+            df = self._load_df(member)
             
             if self.is_test:
                 print("Testing on a small subset of df", flush=True)
@@ -312,10 +316,10 @@ class TrainPipeline:
         
         else:
             raise ValueError("model_key must include 'global' or 'local' ")
-        print(f"Ready to save model --> {self.run_name} --> {out_path}", flush=True)
+        print(f"Ready to save model --> {self.model_key} --> {out_path}", flush=True)
 
         if save and save_obj is not None:
             out_path.parent.mkdir(parents=True, exist_ok=True)
             joblib.dump(save_obj, out_path)
-            print(f"Model saved --> {self.run_name}", flush=True)
+            print(f"Model saved --> {self.model_key}", flush=True)
 
