@@ -22,7 +22,7 @@ class PredictPipeline(TrainPipeline):
         self.predict_config = predict_config
         self.validation_member = self.train_config.second_member
 
-    def _load_model(self):
+    def load_model(self):
         """Load the model corresponding to model_key and config
 
         Note this is pretty slow for GPR-local (takes about ~5 mins)"""
@@ -96,7 +96,7 @@ class PredictPipeline(TrainPipeline):
         )
         return file_path
 
-    def predict_globally(self, member):
+    def predict_globally(self, member, df, pipeline):
        
         if "global" not in self.model_key:
             raise NotImplementedError("predict_globally() should use a global model key")
@@ -116,7 +116,6 @@ class PredictPipeline(TrainPipeline):
             
             X = df.loc[:, self.features]
 
-            pipeline = self._load_model()
             y_pred = pipeline.predict(X)
 
             y = None
@@ -162,7 +161,7 @@ class PredictPipeline(TrainPipeline):
 
             return results_df
 
-    def predict_locally(self, member):
+    def predict_locally(self, member, df, pipeline):
 
         if "local" not in self.model_key:
             raise NotImplementedError("predict_locally() should use a local model key")
@@ -181,10 +180,9 @@ class PredictPipeline(TrainPipeline):
                 df = df_test.merge(keys, on=["lat", "lon"], how="inner")
             
             groups = df.groupby(["lat", "lon"], sort=False)
-            pipelines = self._load_model()
 
             tasks = [
-                (key, group.copy(deep=False), pipelines[key]) for key, group in groups
+                (key, group.copy(deep=False), pipeline[key]) for key, group in groups
             ]
 
             # use Joblib to predict in parallel
@@ -256,7 +254,7 @@ class PredictPipeline(TrainPipeline):
         return {"predictions": cell_results_df}
 
 
-    def predict_and_save_results(self, member, save=True):
+    def predict_and_save_results(self, member, pipeline, save=True):
 
         df = self._load_df(member)
         has_target = self.target in df.columns
@@ -276,10 +274,10 @@ class PredictPipeline(TrainPipeline):
                 raise FileExistsError(f"Refusing to overwrite existing file: {out_path}")
 
         if "global" in self.model_key:
-            results = self.predict_globally(member)
+            results = self.predict_globally(member, df, pipeline)
             
         elif "local" in self.model_key:
-            results = self.predict_locally(member)
+            results = self.predict_locally(member, df, pipeline)
         
         else:
             raise ValueError("model_key must include 'global' or 'local' ")
