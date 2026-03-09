@@ -8,7 +8,6 @@ parser.add_argument('-k', '--model_key', type=str, required=True)
 parser.add_argument('-m', '--model', type=str, required=True)
 parser.add_argument('-s', '--scenario', type=str, required=True)
 parser.add_argument("-v", "--var_setname", required=True)
-parser.add_argument("-t", "--training_member", required=True)
 
 args = parser.parse_args()
 
@@ -16,7 +15,6 @@ model_key = args.model_key
 model = args.model
 scenario = args.scenario
 var_setname = args.var_setname
-training_member = args.training_member
 
 year_range = range(1975,2015) if args.scenario == "historical" else range(2015,2055)
 
