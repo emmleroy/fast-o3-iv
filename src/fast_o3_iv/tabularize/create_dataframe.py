@@ -95,35 +95,35 @@ class CreateDataframe:
         not saved --> meant to be flexible so that each time we create a dataframe
         we can flexibly add/remove different features from the variable_set config
         """
-        #print("#######################################")
-        #print(f"Assembling dataset for {variant_label}")
-        #print("#######################################")
-        #print("----------------")
+        print("#######################################")
+        print(f"Assembling dataset for {variant_label}")
+        print("#######################################")
+        print("----------------")
         multivar_list = []
         template_lat = None
 
         for key, variables in self.variable_set.items():
-            #print(key + ": " + str(variables))
+            print(key + ": " + str(variables))
             if key == "target":
                 for var in variables:
                     if self.has_chemistry:
-                        #print(f"Adding {var}...")   
+                        print(f"Adding {var}...")   
                         path = self._input_filepath(var, variant_label)
                         singlevar_ds = self._open_dataset(path)
 
                         if singlevar_ds["mda8o3"].attrs.get("units") == "mol/mol":
                             singlevar_ds["mda8o3"] = singlevar_ds["mda8o3"] * 1e9
                             singlevar_ds["mda8o3"].attrs["units"] = "ppbv"
-                            #print("converted mol/mol to ppbv")
+                            print("converted mol/mol to ppbv")
 
                         multivar_list.append(singlevar_ds.transpose('time','lat','lon'))
-                        #print(path)
+                        print(path)
                     else:
                         print(f"has_chemistry is False: not adding {var}")
 
             elif key in ("met", "chem"):
                 for var in variables:
-                    #print(f"Adding {var}...")   
+                    print(f"Adding {var}...")   
                     path = self._input_filepath(var, variant_label)
                     singlevar_ds = self._open_dataset(path)
 
@@ -132,12 +132,12 @@ class CreateDataframe:
                         template_lat = singlevar_ds["lat"].values.copy()
 
                     multivar_list.append(singlevar_ds.transpose('time','lat','lon'))
-                    #print(path)
+                    print(path)
 
             elif key == "pc_variables":
                 for var in variables:
-                    #for subvars in pc_variable_sets[var]:
-                        #print(f"Adding {subvars}...")
+                    for subvars in pc_variable_sets[var]:
+                        print(f"Adding {subvars}...")
                     path = self._input_filepath(var, variant_label)
                     singlevar_ds = self._open_dataset(path)
 
@@ -145,25 +145,25 @@ class CreateDataframe:
                     singlevar_ds = singlevar_ds.assign_coords(lat=template_lat)
 
                     multivar_list.append(singlevar_ds.transpose('time','lat','lon'))
-                    #print(path)
+                    print(path)
 
-            #elif key == "time_variables":
-            #    for var in variables:
-                    #print(f"Not adding {var} yet")
-                    #print(f"Month+Year will be added to merged dataset later")
+            elif key == "time_variables":
+                for var in variables:
+                    print(f"Not adding {var} yet")
+                    print(f"Month+Year will be added to merged dataset later")
             
-            #elif key == "location_variables":
-            #    for var in variables:
-                    #print(f"Not adding {var} yet")
-                    #print(f"...will be added to merged dataset later")
+            elif key == "location_variables":
+                for var in variables:
+                    print(f"Not adding {var} yet")
+                    print(f"...will be added to merged dataset later")
 
-            #print("----------------")
+            print("----------------")
         multivar_ds = xr.merge(multivar_list, join="exact", compat="override")
-        #print("Dataset created...")
+        print("Dataset created...")
 
         # Add month + year to all dataframes regardless of whether "month" is in the variable_set 
         # (the variable_set will be used by sklearn later)
-        #print("Adding month + year now...")
+        print("Adding month + year now...")
         multivar_ds["month"] = multivar_ds["time"].dt.month.broadcast_like(multivar_ds).transpose('time','lat','lon')
         multivar_ds["year"]  = multivar_ds["time"].dt.year.broadcast_like(multivar_ds).transpose('time','lat','lon')
         
@@ -182,11 +182,19 @@ class CreateDataframe:
                     )
                     topo_ds = self._open_dataset(pipe.output_path)
                     
-                    #print(f"Adding {var}...")
-                    multivar_ds[var] = topo_ds[var].broadcast_like(multivar_ds).transpose('time','lat','lon')
+                    assert np.allclose(topo_ds.lat.values, multivar_ds.lat.values)
+                    assert np.allclose(topo_ds.lon.values, multivar_ds.lon.values)
+
+                    topo_fixed = topo_ds[var].assign_coords(
+                        lat=multivar_ds.lat,
+                        lon=multivar_ds.lon,
+                    )
+
+                    print(f"Adding {var}...")
+                    multivar_ds[var] = topo_fixed.expand_dims(time=multivar_ds.time).transpose("time", "lat", "lon")
                 
-                #elif var in ('lat', 'lon'):
-                    #print(f"{var} will be added later during conversion to dataframe")
+                elif var in ('lat', 'lon'):
+                    print(f"{var} will be added later during conversion to dataframe")
         
         return multivar_ds
 
@@ -228,8 +236,8 @@ class CreateDataframe:
         ds_merged.attrs["variant_label"] = self.first_member
         return ds_merged
         
-    def create_ds(self):
-        ds = self._assemble_dataset(self.variant_label)
+    def create_ds(self, variant_label):
+        ds = self._assemble_dataset(variant_label)
 
         anomaly_vars = self.anomaly_vars()
         non_anomaly_vars = [v for v in ds.data_vars if v not in set(anomaly_vars)]
@@ -259,8 +267,8 @@ class CreateDataframe:
         df_out = df.drop(columns=['time'])
 
         # check nans
-        for column in df.columns:   
-            if df[column].isnull().values.any():
+        for column in df_out.columns:   
+            if df_out[column].isnull().values.any():
                 raise ValueError("ERROR! nans in column: " + column)
         
         # check size
@@ -273,7 +281,12 @@ class CreateDataframe:
     def _compute(self, variant_label):
         self.variant_label = variant_label
         self.output_path = self._get_output_filepath(variant_label)
-        output_ds = self.create_ds()
+
+        if variant_label == self.first_member:
+            output_ds = self.create_first_member_ds()
+        else:
+            output_ds = self.create_ds(variant_label)
+
         output_df = self.convert_ds_to_df(output_ds)
 
         print(f"Ready to save df --> {self.output_path}")
