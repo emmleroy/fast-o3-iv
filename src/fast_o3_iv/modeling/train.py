@@ -83,6 +83,7 @@ class TrainPipeline:
         mlflow.set_experiment("fast-o3-iv")
 
     def _get_df_filepath(self, member):
+
         file_name = (
             f"{self.config.institution_id}."
             f"{self.config.source_id}."
@@ -105,6 +106,11 @@ class TrainPipeline:
         return file_path
 
     def _get_model_filepath(self):
+        if self.is_test:
+            suffix = ".TEST"
+        else:
+            suffix = ""
+
         file_name = (
             f"{self.config.institution_id}."
             f"{self.config.source_id}."
@@ -113,7 +119,7 @@ class TrainPipeline:
             f"{self.config.variable_setname}."
             "model."
             f"{self.config.year_range[0]}-{self.config.year_range[-1]}."
-            f"{self.model_key}.joblib"
+            f"{self.model_key}{suffix}.joblib"
         )
         file_path = (
             MODELS_DIR
@@ -304,6 +310,10 @@ class TrainPipeline:
 
     def train_and_save_model(self, save=True):
         out_path = self._get_model_filepath()
+        if save:
+            if out_path.exists():
+                raise FileExistsError(f"Refusing to overwrite existing file: {out_path}")
+
         core_model = None
 
         if "global" in self.model_key:
