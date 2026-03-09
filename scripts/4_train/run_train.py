@@ -24,7 +24,6 @@ config = DatasetConfig(
     source_id = model,
     cmip_experiment_id = scenario,
     variable_setname = var_setname, # local
-    training_member = training_member,
     year_range = year_range
 )
 

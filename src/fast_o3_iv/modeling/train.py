@@ -29,13 +29,18 @@ class DatasetConfig:
     source_id: str             # 'CESM2-WACCM6'
     cmip_experiment_id: str    # historical or ssp245 -- note: avoid experiment_id used by MLflow
     variable_setname : str     # identifier for list of features to include
-    training_member: str       # training ensemble member ID
     year_range: Sequence[int]  # range(1975, 2015)
 
     def __post_init__(self): 
         self._model_config = MODEL_CONFIG[self.source_id]
         self.institution_id = self._model_config["institution_id"]
         self.variable_set = VARIABLE_SET[self.variable_setname]
+
+        members_by_exp = self._model_config["members"] # used in predict.py
+        self.members = members_by_exp[self.cmip_experiment_id]
+        self.first_member = self.members[0] 
+        self.second_member = self.members[1]
+        self.remaining_members = self.members[2:]
 
 
 class TrainPipeline:
@@ -50,7 +55,9 @@ class TrainPipeline:
 
         self.is_test = is_test
 
-        # derived attrs
+        # note: we hard-code the training-member as the first ensemble member
+        self.training_member = self.config.first_member
+
         self.target = config.variable_set['target'][0]
         self.features = [
             sub_item
@@ -76,12 +83,12 @@ class TrainPipeline:
             )
         mlflow.set_experiment("fast-o3-iv")
 
-    def _get_df_filepath(self):
+    def _get_train_df_filepath(self):
         file_name = (
             f"{self.config.institution_id}."
             f"{self.config.source_id}."
             f"{self.config.cmip_experiment_id}."
-            f"{self.config.training_member}."
+            f"{self.training_member}."
             f"{self.config.variable_setname}."
             "model_inputs."
             f"{self.config.year_range[0]}-{self.config.year_range[-1]}.parquet"
@@ -92,7 +99,7 @@ class TrainPipeline:
             / self.config.institution_id
             / self.config.source_id
             / self.config.cmip_experiment_id
-            / self.config.training_member
+            / self.training_member
             / self.config.variable_setname
             / file_name
         )
@@ -103,7 +110,7 @@ class TrainPipeline:
             f"{self.config.institution_id}."
             f"{self.config.source_id}."
             f"{self.config.cmip_experiment_id}."
-            f"{self.config.training_member}."
+            f"{self.training_member}."
             f"{self.config.variable_setname}."
             "model."
             f"{self.config.year_range[0]}-{self.config.year_range[-1]}."
@@ -114,7 +121,7 @@ class TrainPipeline:
             / self.config.institution_id
             / self.config.source_id
             / self.config.cmip_experiment_id
-            / self.config.training_member
+            / self.training_member
             / self.config.variable_setname
             / file_name
         )
@@ -122,7 +129,7 @@ class TrainPipeline:
         return file_path
 
     def load_training_df(self):
-        file_path = self._get_df_filepath()
+        file_path = self._get_train_df_filepath()
         df = pd.read_parquet(file_path)
         return df
 
