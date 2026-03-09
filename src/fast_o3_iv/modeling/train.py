@@ -232,8 +232,8 @@ class TrainPipeline:
             n_cpus = int(os.getenv("SLURM_CPUS_PER_TASK", str(os.cpu_count() or 1)))
             print(f"Parallelizing fit over {len(groups)} cells using {n_cpus} CPUs...")
             results = Parallel(n_jobs=n_cpus)(
-                delayed(self._fit_single_cell_with_progress)(key, gdf)
-                for key, gdf in groups
+                delayed(self._fit_single_cell_with_progress)(key, cell_df)
+                for key, cell_df in groups
             )
 
             # map results back to (lat, lon) keys
@@ -297,8 +297,8 @@ class TrainPipeline:
 
         return pipeline, rmse
 
-    def _fit_single_cell_with_progress(self, key, gdf):
-        pipe, rmse = self._fit_single_cell(gdf)
+    def _fit_single_cell_with_progress(self, key, cell_df):
+        pipe, rmse = self._fit_single_cell(cell_df)
         print(f"Completed group {key}", flush=True)
         return key, pipe, rmse
 
