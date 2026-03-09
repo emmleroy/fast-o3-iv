@@ -39,13 +39,13 @@ class DatasetConfig:
 
 
 class TrainPipeline:
-    def __init__(self, model_key, run_name, config: DatasetConfig, is_test=False):
+    def __init__(self, model_key, config: DatasetConfig, is_test=False):
         
         statmodel_info = STATMODEL_REGISTRY[model_key]
         self.model_key = model_key
         self.stat_model = clone(statmodel_info["model_obj"])
 
-        self.run_name = run_name
+        self.run_name = self.model_key + '-' + config.cmip_experiment_id
         self.config = config
 
         self.is_test = is_test
@@ -107,7 +107,7 @@ class TrainPipeline:
             f"{self.config.variable_setname}."
             "model."
             f"{self.config.year_range[0]}-{self.config.year_range[-1]}."
-            f"{self.run_name}.joblib"
+            f"{self.model_key}.joblib"
         )
         file_path = (
             MODELS_DIR
