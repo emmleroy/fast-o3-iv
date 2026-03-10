@@ -72,6 +72,14 @@ def _parquet_file_to_ds(path):
         columns=["lat", "lon", "year", "month", "y_pred", "y_true"],
     ).copy()
 
+    ds = _df_to_ds(df)
+
+    ds = ds.expand_dims(ensemble_member=[ensemble_member])
+
+    return ds
+
+def _df_to_ds(df):
+    df = df.copy()
     df["time"] = pd.to_datetime(
         df["year"] * 10000 + df["month"] * 100 + 1,
         format="%Y%m%d",
@@ -82,11 +90,9 @@ def _parquet_file_to_ds(path):
         df.drop(columns=["year", "month"])
         .set_index(["lat", "lon", "time"])
         .to_xarray()
-        .expand_dims(ensemble_member=[ensemble_member])
     )
 
     return ds
-
 
 def create_results_ds(
     mode,              # testing, inference, validation
@@ -133,17 +139,12 @@ def create_results_ds(
 
 def load_or_create_results_ds(
     mode,              # testing, inference, validation
-    source_id,         # CESM2-WACCM6, CESM2
-    experiment_id,     # historical, ssp245
-    variable_setname,  # setA, setB
     model_key,         # GPR-local, MLR-local
+    config,            # DatasetConfig
 ):
-    model_config = MODEL_CONFIG[source_id]
-    institution_id = model_config["institution_id"]
-
     existing_files = sorted(
         p for p in PROCESSED_DATA_DIR.glob(
-            f"model_outputs/results/{mode}/{institution_id}/{source_id}/{experiment_id}/all/{variable_setname}/{model_key}/*"
+            f"model_outputs/results/{mode}/{config.institution_id}/{config.source_id}/{config.cmip_experiment_id}/all/{config.variable_setname}/{model_key}/*"
         )
         if p.is_file()
     )
@@ -156,9 +157,9 @@ def load_or_create_results_ds(
     print("No existing dataset found. Creating it now.")
     return create_results_ds(
         mode=mode,
-        source_id=source_id,
-        experiment_id=experiment_id,
-        variable_setname=variable_setname,
+        source_id=config.source_id,
+        experiment_id=config.cmip_experiment_id,
+        variable_setname=config.variable_setname,
         model_key=model_key,
     )
 
@@ -240,7 +241,6 @@ def add_grid_weights(ds, grid):
 
     #return ds
 
-
 def add_aux_data(ds):
     """Add grid weights and population density data to netcdf results 
     """
@@ -248,3 +248,37 @@ def add_aux_data(ds):
     #ds = add_population_density(ds)
 
     return ds
+
+def get_mda8o3_climatology(
+        config,
+    ):
+    
+    path = (
+        INTERIM_DATA_DIR 
+        / config.institution_id
+        / config.source_id
+        / config.cmip_experiment_id
+        / config.first_member
+        / 'mda8o3'
+    )
+    file_name = (
+            f"{config.institution_id}."
+            f"{config.source_id}."
+            f"{config.cmip_experiment_id}."
+            f"{config.first_member}."
+            "mda8o3."
+            f"{config.year_range[0]}-{config.year_range[-1]}.nc"
+        )
+    ds = xr.open_dataset(path / file_name)
+    ref_period = (ds['mda8o3']*1e9).sel(
+            time=slice(f"{str(config.year_range[0])}-01-01", 
+            f"{str(config.year_range[0]+9)}-12-31")).load()
+
+    ref_monthly_clm = ref_period.groupby("time.month").mean("time")
+    ref_monthly_clm.attrs["units"] = "ppbv"
+    return ref_monthly_clm
+
+def add_mda8o3_climatology(ds0, config):
+    clm = get_mda8o3_climatology(config)
+    ds0_clm = ds0.groupby('time.month') + clm
+    return ds0_clm
