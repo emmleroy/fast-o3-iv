@@ -196,7 +196,7 @@ class ProcessMDA8O3:
                     ds = self._process_subset(inpath)
                     self._save_file_subsets(ds, year)
 
-        elif self.source_id == "CESM2-WACCM6" and self.experiment_id == "ssp245" and self.year_range == range(2015,2055):
+        elif self.source_id == "CESM2-WACCM6" and self.experiment_id != "historical" and self.year_range == range(2015,2055):
             year_groups = [
                 "2015-2024",
                 "2025-2034",
@@ -215,12 +215,12 @@ class ProcessMDA8O3:
                     ds = self._process_subset(inpath)
                     self._save_file_subsets(ds, year_group)
         else:
-            raise NotImplementedError("only CESM2-WACCM6 historical and ssp245 supported for now")
+            raise NotImplementedError("only CESM2-WACCM6 historical and ssp245/ssp585 supported for now")
 
     def concat_saved(self):
         if self.source_id == "CESM2-WACCM6" and self.experiment_id == "historical":
             filepaths = [self._subset_outfile(year) for year in sorted(self.year_range)]
-        elif self.source_id == "CESM2-WACCM6" and self.experiment_id == "ssp245" and self.year_range == range(2015,2055):
+        elif self.source_id == "CESM2-WACCM6" and self.experiment_id != "historical" and self.year_range == range(2015,2055):
             year_groups = [
                 "2015-2024",
                 "2025-2034",
@@ -229,7 +229,7 @@ class ProcessMDA8O3:
             ]
             filepaths = [self._subset_outfile(year_group) for year_group in year_groups]
         else:
-            raise NotImplementedError("only CESM2-WACCM6 historical and ssp245 supported for now")
+            raise NotImplementedError("only CESM2-WACCM6 historical and ssp245/ssp585 supported for now")
         ds = xr.open_mfdataset(
             filepaths,
             combine="nested", concat_dim="time",
