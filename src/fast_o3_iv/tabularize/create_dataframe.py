@@ -105,21 +105,22 @@ class CreateDataframe:
         for key, variables in self.variable_set.items():
             print(key + ": " + str(variables))
             if key == "target":
-                for var in variables:
-                    if self.has_chemistry:
-                        print(f"Adding {var}...")   
-                        path = self._input_filepath(var, variant_label)
-                        singlevar_ds = self._open_dataset(path)
+                _, base_target, _ = self._target_spec()
 
-                        if singlevar_ds["mda8o3"].attrs.get("units") == "mol/mol":
-                            singlevar_ds["mda8o3"] = singlevar_ds["mda8o3"] * 1e9
-                            singlevar_ds["mda8o3"].attrs["units"] = "ppbv"
-                            print("converted mol/mol to ppbv")
+                if self.has_chemistry:
+                    print(f"Adding {base_target}...")
+                    path = self._input_filepath(base_target, variant_label)
+                    singlevar_ds = self._open_dataset(path)
 
-                        multivar_list.append(singlevar_ds.transpose('time','lat','lon'))
-                        print(path)
-                    else:
-                        print(f"has_chemistry is False: not adding {var}")
+                    if singlevar_ds[base_target].attrs.get("units") == "mol/mol":
+                        singlevar_ds[base_target] = singlevar_ds[base_target] * 1e9
+                        singlevar_ds[base_target].attrs["units"] = "ppbv"
+                        print("converted mol/mol to ppbv")
+
+                    multivar_list.append(singlevar_ds.transpose("time", "lat", "lon"))
+                    print(path)
+                else:
+                    print(f"has_chemistry is False: not adding {base_target}")
 
             elif key in ("met", "chem"):
                 for var in variables:
@@ -198,10 +199,26 @@ class CreateDataframe:
         
         return multivar_ds
 
+    def _target_spec(self):
+        target_vars = self.variable_set.get("target", ())
+        
+        requested_target = target_vars[0]
+
+        if requested_target.endswith("_anm"):
+            base_target = requested_target[:-4]
+            target_is_anomaly = True
+        else:
+            base_target = requested_target
+            target_is_anomaly = False
+
+        return requested_target, base_target, target_is_anomaly
+
     def anomaly_vars(self):
-        """list of variables to convert into anomalies
-        """
+        """list of variables to convert into anomalies"""
+        _, base_target, target_is_anomaly = self._target_spec()
+
         anomaly_vars_list = [
+            *((base_target,) if target_is_anomaly else ()),
             *self.variable_set.get("met", ()),
             *self.variable_set.get("chem", ()),
         ]
@@ -212,12 +229,20 @@ class CreateDataframe:
 
         return anomaly_vars_list
 
+    def _rename_target_if_needed(self, ds):
+        requested_target, base_target, target_is_anomaly = self._target_spec()
+
+        if target_is_anomaly and base_target in ds.data_vars:
+            ds = ds.rename({base_target: requested_target})
+
+        return ds
+
     def create_first_member_ds(self):
         ds = self._assemble_dataset(self.first_member)
 
-        anomaly_vars = self.anomaly_vars()
+        requested_anomaly_vars = self.anomaly_vars()
+        anomaly_vars = [v for v in requested_anomaly_vars if v in ds.data_vars]
         non_anomaly_vars = [v for v in ds.data_vars if v not in set(anomaly_vars)]
-
 
         # calculate and save anomalies relative to the first member climatology
         ref_period = ds[anomaly_vars].sel(
@@ -231,7 +256,8 @@ class CreateDataframe:
         non_anomalies = ds[non_anomaly_vars]
         
         ds_merged = xr.merge([anomalies, non_anomalies], join="exact", compat="override")
-        
+        ds_merged = self._rename_target_if_needed(ds_merged)
+
         self._first_member_created = True
         ds_merged.attrs["variant_label"] = self.first_member
         return ds_merged
@@ -239,7 +265,8 @@ class CreateDataframe:
     def create_ds(self, variant_label):
         ds = self._assemble_dataset(variant_label)
 
-        anomaly_vars = self.anomaly_vars()
+        requested_anomaly_vars = self.anomaly_vars()
+        anomaly_vars = [v for v in requested_anomaly_vars if v in ds.data_vars]
         non_anomaly_vars = [v for v in ds.data_vars if v not in set(anomaly_vars)]
 
         # calculate and save anomalies relative to the first member climatology
@@ -252,7 +279,8 @@ class CreateDataframe:
         non_anomalies = ds[non_anomaly_vars]
         
         ds_merged = xr.merge([anomalies, non_anomalies], join="exact", compat="override")
-        ds_merged.attrs["variant_label"] = self.variant_label
+        ds_merged = self._rename_target_if_needed(ds_merged)
+        ds_merged.attrs["variant_label"] = variant_label
         return ds_merged
 
     @staticmethod
@@ -279,7 +307,6 @@ class CreateDataframe:
         return df_out
 
     def _compute(self, variant_label):
-        self.variant_label = variant_label
         self.output_path = self._get_output_filepath(variant_label)
 
         if variant_label == self.first_member:
