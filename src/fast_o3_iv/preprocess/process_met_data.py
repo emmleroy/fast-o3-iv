@@ -131,8 +131,9 @@ class ProcessMetData:
         """ 
         if self.source_id == 'CESM2-WACCM6':
             engine="netcdf4"
-        elif (self.source_id == 'CESM2') and (self.experiment_id=='ssp245'):
+        elif (self.source_id == 'CESM2') and (self.experiment_id!='historical'):
             engine="netcdf4"
+            print("using netcdf", flush=True)
         else:
             engine="h5netcdf" # important!! to avoid binary incompatibility between numpy and netCDF
 
