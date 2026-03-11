@@ -88,32 +88,46 @@ class ProcessMDA8O3:
 
     def _open_subset(self, filepaths):
         """Open one (possibly multi-year) file at a time, decode CF times."""
+        filepaths = [filepaths]
+
         ds0 = xr.open_mfdataset(
             filepaths,
             combine="by_coords",
-            data_vars="minimal", coords="minimal", compat="override",
-            decode_times=False, 
+            data_vars="minimal",
+            coords="minimal",
+            compat="override",
+            decode_times=False,
             engine="netcdf4",
+            parallel=True,
+            chunks={"time": 240, "lat": -1, "lon": -1}
         )
+
         ds_keep = ds0[[self.var_original]]
         time_coder = CFDatetimeCoder(use_cftime=True)
         return xr.decode_cf(ds_keep, decode_times=time_coder)
     
     # Processing files
     def _process_subset(self, filepath_subset):
+
+        print(f"working on {filepath_subset}, flush=true")
+        print("opening file!", flush=True)
         ds0 = self._open_subset(filepath_subset)
 
         # 1. shift to local standard time
+        print("shifting to LST!", flush=True)
         ds1 = calendar_tools.to_localtime(ds0)
 
         # 2. calculate mda8o3 on localtime data
+        print("calculating mda8!", flush=True)
         mda8 = self._calc_mda8(ds1[self.var_original])
 
-        # 3. calculate monthly mean of daily mda8o3 
+        # 3. calculate monthly mean of daily mda8o3
+        print("resampling time!", flush=True) 
         monthly_mda8 = mda8.resample(time='MS').mean(keep_attrs=True)
         monthly_mda8.name = "mda8o3"
 
         # 4. update variable metadata 
+        print("updating meta data!", flush=True) 
         var_units = ds0[self.var_original].attrs.get("units", "unknown")
         monthly_mda8.attrs.update({
             "long_name" : "Maximum daily 8-hour mean ozone (monthly mean of daily maxima)",
@@ -122,6 +136,7 @@ class ProcessMDA8O3:
         })
 
         # 5. update time metadata
+        print("updating time encodig!", flush=True) 
         units, calendar = calendar_tools.get_time_encoding(ds0["time"])
         monthly_mda8["time"].encoding.update({
             "units": units,
@@ -171,6 +186,7 @@ class ProcessMDA8O3:
 
     def _save_file_subsets(self, ds, year_or_year_group):
         outfile = self._subset_outfile(year_or_year_group)
+        print("saving to netcdf....", flush=True)
         ds.to_netcdf(outfile)
         print(f"Saved {year_or_year_group} -> {outfile}", flush=True)
 
@@ -211,7 +227,7 @@ class ProcessMDA8O3:
                     print(f"Skipping {year_group} --> file already exists and has {expected} timesteps.", flush=True)
                 else:
                     print(f"Processing {year_group}", flush=True)
-                    inpath = inpaths[idx]
+                    inpath = [inpaths[idx]]
                     ds = self._process_subset(inpath)
                     self._save_file_subsets(ds, year_group)
         else:
@@ -232,11 +248,16 @@ class ProcessMDA8O3:
             raise NotImplementedError("only CESM2-WACCM6 historical and ssp245/ssp585 supported for now")
         ds = xr.open_mfdataset(
             filepaths,
-            combine="nested", concat_dim="time",
-            data_vars="minimal", coords="minimal",
-            compat="override", decode_times=False,
+            combine="nested",
+            concat_dim="time",
+            data_vars="minimal",
+            coords="minimal",
+            compat="override",
+            decode_times=False,
             engine="netcdf4",
-            )
+            parallel=True,
+            chunks={"time": 120},
+        )
         
         expected = 12 * len(self.year_range)
         if utils.has_expected_data(self.out_path, expected):
