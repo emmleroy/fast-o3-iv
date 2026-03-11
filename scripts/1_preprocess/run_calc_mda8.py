@@ -26,5 +26,17 @@ pipe = ProcessMDA8O3(
     year_range=year_range
 )
 
-pipe.compute()
-pipe.concat_saved()
+#pipe.compute()
+#pipe.concat_saved()
+
+idx = 1
+inpaths = pipe._glob_all_filepaths()
+inpath = inpaths[idx]
+year_groups = [
+                "2015-2024",
+                "2025-2034",
+                "2035-2044",
+                "2045-2054"
+            ]
+ds = pipe._process_subset(inpath)
+pipe._save_file_subsets(ds, year_groups[idx])
