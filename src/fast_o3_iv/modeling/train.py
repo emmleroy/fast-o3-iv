@@ -39,8 +39,8 @@ class DatasetConfig:
         members_by_exp = self._model_config["members"] # used in predict.py
         self.members = members_by_exp[self.cmip_experiment_id]
         self.first_member = self.members[0] 
-        self.second_member = self.members[1]
-        self.remaining_members = self.members[2:]
+        self.second_member = self.members[1] if len(self.members) > 1 else []
+        self.remaining_members = self.members[2:] if len(self.members) > 2 else []
 
 
 class TrainPipeline:
