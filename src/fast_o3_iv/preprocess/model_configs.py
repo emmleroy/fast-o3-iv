@@ -44,6 +44,9 @@ member_set = {
         '009',
         '010'
     ],
+     "ssp585" : [
+        '001'
+     ],
   },
   "CESM2" : {
     "historical" : [
