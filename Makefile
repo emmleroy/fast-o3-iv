@@ -16,7 +16,7 @@ POETRY = poetry
 .PHONY: create_environment
 create_environment:
 	$(CONDA) create --name $(PROJECT_NAME) python=$(PYTHON_VERSION) -y
-	$(CONDA) install -n $(PROJECT_NAME) -c conda-forge poetry esmf esmpy xesmf -y
+	$(CONDA) install -n $(PROJECT_NAME) -c conda-forge poetry esmf esmpy xesmf distributed -y
 	@echo ">>> conda env created. Activate with:"
 	@echo "conda activate $(PROJECT_NAME)"
 

@@ -28,7 +28,7 @@ make test
 Create environment:
 ```bash
 conda create --name fast-o3-iv python=3.11 -y
-conda install -n fast-o3-iv -c conda-forge poetry esmf esmpy xesmf -y
+conda install -n fast-o3-iv -c conda-forge poetry esmf esmpy xesmf distributed -y
 conda activate fast-o3-iv
 ```
 Install dependencies:
