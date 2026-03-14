@@ -291,5 +291,11 @@ def get_mda8o3_climatology(
 
 def add_mda8o3_climatology(ds0, config):
     clm = get_mda8o3_climatology(config)
-    ds0_clm = ds0.groupby('time.month') + clm
+
+    assert clm.sizes["lat"] == ds0.sizes["lat"]
+    assert clm.sizes["lon"] == ds0.sizes["lon"]
+
+    clm2 = clm.assign_coords(lat=ds0.lat, lon=ds0.lon)
+    ds0_clm = ds0.groupby("time.month") + clm2
+
     return ds0_clm
