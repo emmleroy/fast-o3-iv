@@ -76,16 +76,14 @@ class PredictPipeline(TrainPipeline):
             f"{pred_cfg.cmip_experiment_id}."
             f"{member}."
             f"{pred_cfg.variable_setname}."
-            f"{self.mode}."
             f"{pred_cfg.year_range[0]}-{pred_cfg.year_range[-1]}."
-            f"{self.model_key}."
-            f"trained-on-{train_cfg.source_id}-{train_cfg.cmip_experiment_id}{suffix}.parquet"
+            f"{self.model_key}.parquet"
+            #f"trained-on-{train_cfg.source_id}-{train_cfg.cmip_experiment_id}{suffix}.parquet" # option if we start mixing train/predict scenarios or models
         )
         file_path = (
             PROCESSED_DATA_DIR
             / "model_outputs"
             / "results"
-            / f"{self.mode}"
             / pred_cfg.institution_id
             / pred_cfg.source_id
             / pred_cfg.cmip_experiment_id
@@ -269,9 +267,9 @@ class PredictPipeline(TrainPipeline):
 
         out_path = self._get_output_df_filepath(member)
 
-        if save:
-            if out_path.exists():
-                raise FileExistsError(f"Refusing to overwrite existing file: {out_path}")
+        if save and out_path.exists():
+            print(f"Skipping existing file: {out_path}", flush=True)
+            return
 
         if "global" in self.model_key:
             results = self.predict_globally(member, df, pipeline)
@@ -285,7 +283,5 @@ class PredictPipeline(TrainPipeline):
 
         if save and results is not None:
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            if out_path.exists():
-                raise FileExistsError(f"Refusing to overwrite existing file: {out_path}")
             results.to_parquet(out_path, index=False)
             print(f"Saved: {out_path}", flush=True)
