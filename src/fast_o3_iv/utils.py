@@ -25,42 +25,37 @@ def has_expected_data(path, expected_timesteps):
 def exists(path):
     return os.path.exists(path) and os.path.getsize(path) > 0
 
-def _results_ds_dir(
-    mode, source_id, experiment_id, variable_setname, model_key
+def _aggregated_results_ds_dir(
+    mode, config, model_key
 ):
-    model_config = MODEL_CONFIG[source_id]
-    institution_id = model_config["institution_id"]
-
     return (
         PROCESSED_DATA_DIR
         / "model_outputs"
-        / "results"
+        / "aggregated_results"
+        / config.institution_id
+        / config.source_id
+        / config.cmip_experiment_id
         / mode
-        / institution_id
-        / source_id
-        / experiment_id
-        / "all"
-        / variable_setname
+        / config.variable_setname
         / model_key
     )
 
-
-def _results_ds_path(
-    mode, source_id, experiment_id, variable_setname, model_key
+def _aggregated_results_path(
+    mode, config, model_key
 ):
-    model_config = MODEL_CONFIG[source_id]
-    institution_id = model_config["institution_id"]
-
-    out_dir = _results_ds_dir(
-        mode, source_id, experiment_id, variable_setname, model_key
+    out_dir = _aggregated_results_ds_dir(
+        mode, config, model_key
     )
 
-    filename = (
-        f"{institution_id}.{source_id}.{experiment_id}.all."
-        f"{variable_setname}.{mode}.{model_key}.nc"
+    file_name = (
+        f"{config.institution_id}."
+        f"{config.source_id}."
+        f"{config.cmip_experiment_id}."
+        f"{mode}."
+        f"{config.variable_setname}."
+        f"{model_key}.nc"
     )
-
-    return out_dir / filename
+    return out_dir / file_name
 
 
 def _parquet_file_to_ds(path):
@@ -94,19 +89,37 @@ def _df_to_ds(df):
 
     return ds
 
-def create_results_ds(
-    mode,              # testing, inference, validation
-    source_id,         # CESM2-WACCM6, CESM2
-    experiment_id,     # historical, ssp245
-    variable_setname,  # setA, setB
+def _get_member_result_files(
+    mode,              # validation, testing, inference
+    config,
     model_key,         # GPR-local, MLR-local
 ):
-    model_config = MODEL_CONFIG[source_id]
-    institution_id = model_config["institution_id"]
+
+    if mode == "validation":
+        member_list = config.second_member
+    elif mode == "testing":
+        member_list = config.remaining_members
+    elif mode == "inference":
+        member_list = config.members # all members
+    else:
+        raise NotImplementedError("mode must be one of ['validation', 'testing', 'inference']")
+
+    if isinstance(member_list, str):
+        member_list = [member_list] # iterable
 
     files = sorted(
-        p for p in PROCESSED_DATA_DIR.glob(
-            f"model_outputs/results/{mode}/{institution_id}/{source_id}/{experiment_id}/*/{variable_setname}/{model_key}/*"
+        p
+        for member in member_list
+        for p in PROCESSED_DATA_DIR.glob(
+            (
+                f"model_outputs/results/"
+                f"{config.institution_id}/"
+                f"{config.source_id}/"
+                f"{config.cmip_experiment_id}/"
+                f"{member}/"
+                f"{config.variable_setname}/"
+                f"{model_key}/*"
+            )
         )
         if p.is_file()
     )
@@ -115,6 +128,14 @@ def create_results_ds(
     for f in files:
         print(f)
 
+    return files
+
+def aggregate_results(
+    mode,              # validation, testing, inference
+    config,
+    model_key,         # GPR-local, MLR-local
+):
+    files = _get_member_result_files(mode, config, model_key)
     datasets = [_parquet_file_to_ds(f) for f in files]
 
     ds = xr.concat(
@@ -128,7 +149,7 @@ def create_results_ds(
     )
 
     out_path = _results_ds_path(
-        mode, source_id, experiment_id, variable_setname, model_key
+        mode, config, model_key
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -137,30 +158,20 @@ def create_results_ds(
 
     return ds
 
-def load_or_create_results_ds(
-    mode,              # testing, inference, validation
-    model_key,         # GPR-local, MLR-local
-    config,            # DatasetConfig
+def load_or_aggregate_results(
+    mode, config, model_key
 ):
-    existing_files = sorted(
-        p for p in PROCESSED_DATA_DIR.glob(
-            f"model_outputs/results/{mode}/{config.institution_id}/{config.source_id}/{config.cmip_experiment_id}/all/{config.variable_setname}/{model_key}/*"
-        )
-        if p.is_file()
+    out_path = _aggregated_results_path(
+        mode, config, model_key
     )
 
-    if existing_files:
-        out_path = existing_files[0]
+    if exists(out_path):
         print(f"Loading existing dataset from {out_path}")
         return xr.open_dataset(out_path)
 
     print("No existing dataset found. Creating it now.")
-    return create_results_ds(
-        mode=mode,
-        source_id=config.source_id,
-        experiment_id=config.cmip_experiment_id,
-        variable_setname=config.variable_setname,
-        model_key=model_key,
+    return aggregate_results(
+        mode, config, model_key
     )
 
 def add_grid_weights(ds, grid):
@@ -194,10 +205,10 @@ def add_grid_weights(ds, grid):
     return ds
 
 #def add_population_density(ds):
-    """Add population density to an xr.Dataset from GPWv4 (gpw_v4_population_density_rev11_2015_1_deg)
+    #"""Add population density to an xr.Dataset from GPWv4 (gpw_v4_population_density_rev11_2015_1_deg)
 
-    to do: fix bug (kernel crashes when building regridder object)
-    """
+    #to do: fix bug (kernel crashes when building regridder object)
+    #"""
 
     # load raw GPWv4 tiff file
     #gpw_path = EXTERNAL_DATA_DIR / "GPWv4/gpw_v4_population_density_rev11_2015_1_deg.tif"

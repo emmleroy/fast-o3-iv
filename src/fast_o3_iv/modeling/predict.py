@@ -83,7 +83,7 @@ class PredictPipeline(TrainPipeline):
         file_path = (
             PROCESSED_DATA_DIR
             / "model_outputs"
-            / "results"
+            / "member_results"
             / pred_cfg.institution_id
             / pred_cfg.source_id
             / pred_cfg.cmip_experiment_id

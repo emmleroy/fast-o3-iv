@@ -36,26 +36,25 @@ def bias_correct(model_osmda8_ds, scaling_factor):
     model_osmda8_bc_ds["scaling_factor"] = scaling_factor
     return model_osmda8_bc_ds.transpose("time", "lat", "lon", "ensemble_member")
 
-def create_osdma8_bc_save_path(config, model_key, mode):
+def create_osdma8_bc_path(mode, config, model_key):
     file_name = (
             f"{config.institution_id}."
             f"{config.source_id}."
             f"{config.cmip_experiment_id}."
-            f"all_osdma8_biascorrected."
-            f"{config.variable_setname}."
             f"{mode}."
-            f"{model_key}.nc"
+            f"{config.variable_setname}."
+            f"{model_key}."
+            f"osdma8.bias_corrected.nc"
         )
 
     file_path = (
             PROCESSED_DATA_DIR
             / "model_outputs"
-            / "results"
-            / mode
+            / "derived_metrics"
             / config.institution_id
             / config.source_id
             / config.cmip_experiment_id
-            / "all_osdma8_biascorrected"
+            / mode
             / config.variable_setname
             / model_key
             / file_name
