@@ -38,6 +38,10 @@ def calc_osdma8(ds0):
     # annual max by START year (and avoid collision with existing 'year' var!)
     osdma8 = rolled_jan_oct.resample(time='YS').max()
 
+    osdma8.attrs.update({
+            "long_name" : "Ozone season daily 8-hour mean ozone (OSDMA8)",
+            "units" : "ppbv",
+        })
     return osdma8
 
 def return_internal_component(ds0):
