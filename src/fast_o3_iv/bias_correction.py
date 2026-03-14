@@ -34,6 +34,7 @@ def bias_correct(model_osmda8_ds, scaling_factor):
         raise KeyError("model_osmda8_ds must contain 'y_pred'")
 
     model_osmda8_bc_ds["scaling_factor"] = scaling_factor
+
     return model_osmda8_bc_ds.transpose("time", "lat", "lon", "ensemble_member")
 
 def return_osdma8_bc_path(mode, config, model_key):
