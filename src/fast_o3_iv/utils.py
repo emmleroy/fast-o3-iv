@@ -287,3 +287,19 @@ def add_mda8o3_climatology(ds0, train_config):
     ds0_clm = ds0.groupby("time.month") + clm2
 
     return ds0_clm
+
+def global_wmean(ds, var, spatial_dims=("lat", "lon"), mask=None):
+    da = ds[var]
+    w = ds["gw"].fillna(0)
+
+    if mask is not None:
+        if isinstance(mask, str):
+            mask = ds[mask]
+
+        # turn mask-like data into boolean
+        mask = mask.fillna(0) > 0
+
+        da = da.where(mask)
+        w = w.where(mask, 0)
+
+    return da.weighted(w).mean(spatial_dims)
