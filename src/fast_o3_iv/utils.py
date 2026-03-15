@@ -1,15 +1,28 @@
 import os
 
+import matplotlib.pyplot as plt 
 import numpy as np
 import pandas as pd
+import rioxarray as rxr
 import xarray as xr
 import xesmf as xe
-import rioxarray as rxr
 
 from fast_o3_iv.config import PROCESSED_DATA_DIR
 from fast_o3_iv.config import INTERIM_DATA_DIR, EXTERNAL_DATA_DIR
 from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG
 
+
+def set_matplotlib_font(font_family: str):
+    """Set the matplotlib font family.
+
+    Args:
+        font_family (str): the font family
+
+    """
+
+    #assert font_family in supported_fonts, f'Font {font_family} not supported.'
+    plt.rcParams['font.family'] = font_family
+    plt.rcParams.update({'mathtext.default': 'regular'})
 
 def has_expected_data(path, expected_timesteps):
     try:
