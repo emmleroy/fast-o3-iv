@@ -12,7 +12,6 @@ from sklearn.base import clone
 from sklearn.compose import ColumnTransformer
 from sklearn.metrics import mean_squared_error
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import RobustScaler # scaling method
 
 from fast_o3_iv.config import PROCESSED_DATA_DIR
 from fast_o3_iv.config import MLFLOW_TRACKING_URI, MODELS_DIR
@@ -48,7 +47,8 @@ class TrainPipeline:
         
         statmodel_info = STATMODEL_REGISTRY[model_key]
         self.model_key = model_key
-        self.stat_model = clone(statmodel_info["model_obj"])
+        self.stat_model = statmodel_info["model_obj"]
+        self.scaler = statmodel_info["scaler"]
 
         self.config = config
 
@@ -172,7 +172,7 @@ class TrainPipeline:
             # define pipeline
             pipeline = Pipeline([
                 ("pre",    pre),
-                ("scaler", RobustScaler()),
+                ("scaler", clone(self.scaler)),
                 ("model",  clone(self.stat_model)),
             ]).set_output(transform="pandas")
 
@@ -292,7 +292,7 @@ class TrainPipeline:
 
         pipeline = Pipeline([
             ("pre", pre),
-            ("scaler", RobustScaler()),
+            ("scaler", clone(self.scaler)),
             ("model", clone(self.stat_model)) # each cell gets own copy of the model
         ]).set_output(transform="pandas")
 
