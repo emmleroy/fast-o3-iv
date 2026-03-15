@@ -1,20 +1,25 @@
 from fast_o3_iv.config import PROCESSED_DATA_DIR
 
-def get_bc_scaling_factor(model_osmda8_ds, obs_osdma8_ds):
-    """get bias correction scaling factor"""
-    
+
+def get_bc_scaling_factor(model_osdma8_ds, obs_osdma8_ds):
+    """Compute ratio-based bias-correction scaling factor from a baseline period."""
     baseline_years = slice("1990", "2014")
 
-    obs = obs_osdma8_ds['ozone'] # osdma8
+    obs = obs_osdma8_ds["ozone"]
 
-    ytrue = model_osmda8_ds["y_true"]
-    ytrue_forced = ytrue.mean("ensemble_member") # ensemble means
+    # correct based on ratio between obs and y_true, if y_true exists
+    # else, correct based on ratio between obs and y_pred
+    if "y_true" in model_osdma8_ds:
+        reference_var = "y_true"
+    else:
+        reference_var = "y_pred"
 
-    # baseline climatologies
+    model_reference = model_osdma8_ds[reference_var]
+    model_forced = model_reference.mean("ensemble_member")
+
     obs_base = obs.sel(time=baseline_years).mean("time")
-    mod_base = ytrue_forced.sel(time=baseline_years).mean("time")
+    mod_base = model_forced.sel(time=baseline_years).mean("time")
 
-    # ratio-based bias-correction factor
     scaling_factor = obs_base / mod_base
 
     return scaling_factor.transpose("lat", "lon"), obs_base, mod_base

@@ -64,7 +64,6 @@ def _parquet_file_to_ds(path):
 
     df = pd.read_parquet(
         path,
-        columns=["lat", "lon", "year", "month", "y_pred", "y_true"],
     ).copy()
 
     ds = _df_to_ds(df)
@@ -112,7 +111,7 @@ def _get_member_result_files(
         for member in member_list
         for p in PROCESSED_DATA_DIR.glob(
             (
-                f"model_outputs/results/"
+                f"model_outputs/member_results/"
                 f"{config.institution_id}/"
                 f"{config.source_id}/"
                 f"{config.cmip_experiment_id}/"
@@ -148,7 +147,7 @@ def aggregate_results(
         combine_attrs="override",
     )
 
-    out_path = _results_ds_path(
+    out_path = _aggregated_results_path(
         mode, config, model_key
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -289,8 +288,8 @@ def get_mda8o3_climatology(
     ref_monthly_clm.attrs["units"] = "ppbv"
     return ref_monthly_clm
 
-def add_mda8o3_climatology(ds0, config):
-    clm = get_mda8o3_climatology(config)
+def add_mda8o3_climatology(ds0, train_config):
+    clm = get_mda8o3_climatology(train_config)
 
     assert clm.sizes["lat"] == ds0.sizes["lat"]
     assert clm.sizes["lon"] == ds0.sizes["lon"]
