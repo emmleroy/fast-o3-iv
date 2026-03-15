@@ -10,7 +10,7 @@ from scipy.stats import wasserstein_distance
 
 def calc_osdma8(ds0):
     """
-    from monthly-mda mda8 o3 in units of mol/mol, calculate osdma8 
+    from monthly-mda mda8 o3 in units of ppbv, calculate osdma8 
     
     key note: from Malashock et al. 2022
 
