@@ -216,59 +216,35 @@ def add_grid_weights(ds, grid):
 
     return ds
 
-#def add_population_density(ds):
+def add_population_density(ds):
     #"""Add population density to an xr.Dataset from GPWv4 (gpw_v4_population_density_rev11_2015_1_deg)
 
-    #to do: fix bug (kernel crashes when building regridder object)
-    #"""
+    pop_path = INTERIM_DATA_DIR / "GPWv4/gpw_v4_population_density_rev11_2015_192_288.nc"
+    pop_ds = xr.open_dataset(pop_path)
 
-    # load raw GPWv4 tiff file
-    #gpw_path = EXTERNAL_DATA_DIR / "GPWv4/gpw_v4_population_density_rev11_2015_1_deg.tif"
-    #population_tiff = rxr.open_rasterio(gpw_path)
+    # rename population to population_density for clarify
+    pop_ds = pop_ds.rename({"population" : "population_density"})
 
-    # sqeeze band and rename x/y to lon/lat
-    #population_tiff = population_tiff.squeeze("band", drop=True).rename({"y": "lat", "x": "lon"})
+    assert pop_ds.sizes["lat"] == ds.sizes["lat"]
+    assert pop_ds.sizes["lon"] == ds.sizes["lon"]
 
-    # convert -180--180 lons to 0--360
-    #pop_da = population_tiff.assign_coords(
-    #    lon=((population_tiff["lon"] + 360) % 360)
-    #)
+    pop_ds2 = pop_ds.assign_coords(lat=ds.lat, lon=ds.lon)
 
-    # keep values strictly ascending
-    #pop_da = pop_da.sortby("lon")
-    #pop_da = pop_da.sortby("lat")
-
-    # super important! gpwv4 nodatavals is -3.402823e+38 which will create weird values at grid interpolation
-    #nodata = pop_da.attrs["_FillValue"]
-    #pop_da = pop_da.where(pop_da != nodata)   # turn nodata into NaN
-
-    # use xesmf for bilinear interpolation
-
-    # define input (src) and output (dst) grids
-    #src = xr.Dataset({"lat": pop_da.lat, "lon": pop_da.lon}) # input = pop_da
-    #dst = xr.Dataset({"lat": ds.lat, "lon": ds.lon}) # output = ds that we want to match
-
-    # define regridder object and apply to pop_da
-    #regridder = xe.Regridder(src, dst, "bilinear")
-    #pop_on_ds = regridder(pop_da)
-
-    # adding population_density variable to ds
-    #ds = ds.assign(population_density=pop_on_ds)
-
+    ds["population_density"] = pop_ds2["population_density"]
     # update ds.population_density attrs
-    #ds["population_density"].attrs.update({
-    #    "long_name": "Population density",
-    #    "standard_name": "population_density",
-    #    "units": "persons km-2",
-    #})
+    ds["population_density"].attrs.update({
+        "long_name": "Population density",
+        "standard_name": "population_density",
+        "units": "persons km-2",
+    })
 
-    #return ds
+    return ds
 
 def add_aux_data(ds):
     """Add grid weights and population density data to netcdf results 
     """
     ds = add_grid_weights(ds, grid="CESM2-WACCM6_0.9x1.25")
-    #ds = add_population_density(ds)
+    ds = add_population_density(ds)
 
     return ds
 
