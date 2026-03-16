@@ -217,28 +217,44 @@ def add_grid_weights(ds, grid):
     return ds
 
 def add_population_density(ds):
-    #"""Add population density to an xr.Dataset from GPWv4 (gpw_v4_population_density_rev11_2015_1_deg)
-
     pop_path = INTERIM_DATA_DIR / "GPWv4/gpw_v4_population_density_rev11_2015_192_288.nc"
-    pop_ds = xr.open_dataset(pop_path)
+    pop = xr.open_dataset(pop_path)["population"].rename("population_density")
 
-    # rename population to population_density for clarify
-    pop_ds = pop_ds.rename({"population" : "population_density"})
+    # if ds lat/lon are exact coordinate labels from the population file
+    pop = pop.sel(lat=ds.lat, lon=ds.lon)
 
-    assert pop_ds.sizes["lat"] == ds.sizes["lat"]
-    assert pop_ds.sizes["lon"] == ds.sizes["lon"]
-
-    pop_ds2 = pop_ds.assign_coords(lat=ds.lat, lon=ds.lon)
-
-    ds["population_density"] = pop_ds2["population_density"]
-    # update ds.population_density attrs
+    ds = ds.copy()
+    ds["population_density"] = pop
     ds["population_density"].attrs.update({
         "long_name": "Population density",
         "standard_name": "population_density",
         "units": "persons km-2",
     })
-
     return ds
+
+#def add_population_density(ds):
+    #"""Add population density to an xr.Dataset from GPWv4 (gpw_v4_population_density_rev11_2015_1_deg)
+
+#    pop_path = INTERIM_DATA_DIR / "GPWv4/gpw_v4_population_density_rev11_2015_192_288.nc"
+#    pop_ds = xr.open_dataset(pop_path)
+
+    # rename population to population_density for clarify
+#    pop_ds = pop_ds.rename({"population" : "population_density"})
+
+#    assert pop_ds.sizes["lat"] == ds.sizes["lat"]
+#    assert pop_ds.sizes["lon"] == ds.sizes["lon"]
+
+#    pop_ds2 = pop_ds.assign_coords(lat=ds.lat, lon=ds.lon)
+
+#    ds["population_density"] = pop_ds2["population_density"]
+    # update ds.population_density attrs
+#    ds["population_density"].attrs.update({
+#        "long_name": "Population density",
+#        "standard_name": "population_density",
+#        "units": "persons km-2",
+#    })
+
+#    return ds
 
 def add_aux_data(ds):
     """Add grid weights and population density data to netcdf results 
