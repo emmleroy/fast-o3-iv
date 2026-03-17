@@ -6,6 +6,7 @@ data
 
 # Exploratory notebooks
 notebooks/exploratory/
+figures/exploratory/
 
 # Bash scripts
 **/*.sh
