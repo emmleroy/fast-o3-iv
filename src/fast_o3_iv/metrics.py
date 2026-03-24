@@ -8,7 +8,7 @@ import numpy as np
 from scipy.stats import wasserstein_distance
 
 
-def calc_osdma8(ds0):
+def calc_osdma8(ds0, targets=False):
     """
     from monthly-mda mda8 o3 in units of ppbv, calculate osdma8 
     
@@ -22,8 +22,10 @@ def calc_osdma8(ds0):
     """
 
     ds = ds0.copy(deep=True)
-    rolled_vars = ['y_pred'] + (['y_true'] if 'y_true' in ds.data_vars else [])
-
+    if targets:
+        rolled_vars = ['y_true']
+    else:
+        rolled_vars = ['y_pred'] + (['y_true'] if 'y_true' in ds.data_vars else [])
 
     rolled_6mo_end_labeled = ds[rolled_vars].rolling(time=6, min_periods=6).mean()
     rolled_6mo_valid = rolled_6mo_end_labeled.isel(time=slice(5, None))
