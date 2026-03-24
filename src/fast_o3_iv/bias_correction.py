@@ -35,8 +35,9 @@ def bias_correct(model_osmda8_ds, scaling_factor):
             da_bc = forced_bc + (da - forced)
             model_osmda8_bc_ds[f"{var}_bc"] = da_bc
 
-    if "y_pred" not in model_osmda8_ds:
-        raise KeyError("model_osmda8_ds must contain 'y_pred'")
+    # we can relax this for mode=target
+    #if "y_pred" not in model_osmda8_ds:
+    #    raise KeyError("model_osmda8_ds must contain 'y_pred'")
 
     model_osmda8_bc_ds["scaling_factor"] = scaling_factor
 
