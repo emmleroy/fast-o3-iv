@@ -102,39 +102,58 @@ def _df_to_ds(df):
     return ds
 
 def _get_member_result_files(
-    mode,              # validation, testing, inference
+    mode,              # validation, testing, inference, targets
     config,
     model_key,         # GPR-local, MLR-local
 ):
-
-    if mode == "validation":
-        member_list = config.second_member
-    elif mode == "testing":
-        member_list = config.remaining_members
-    elif mode == "inference":
+    if mode == "targets": # used for extra CESM2-WACCM6 members that we don't test on (to avoid downloading extra data)
         member_list = config.members # all members
-    else:
-        raise NotImplementedError("mode must be one of ['validation', 'testing', 'inference']")
-
-    if isinstance(member_list, str):
-        member_list = [member_list] # iterable
-
-    files = sorted(
-        p
-        for member in member_list
-        for p in PROCESSED_DATA_DIR.glob(
-            (
-                f"model_outputs/member_results/"
-                f"{config.institution_id}/"
-                f"{config.source_id}/"
-                f"{config.cmip_experiment_id}/"
-                f"{member}/"
-                f"{config.variable_setname}/"
-                f"{model_key}/*"
+        if isinstance(member_list, str):
+            member_list = [member_list] # iterable
+        files = sorted(
+            p
+            for member in member_list
+            for p in PROCESSED_DATA_DIR.glob(
+                (
+                    f"model_targets/member_results/"
+                    f"{config.institution_id}/"
+                    f"{config.source_id}/"
+                    f"{config.cmip_experiment_id}/"
+                    f"{member}/"
+                    f"{config.variable_setname}/*"
+                )
             )
+            if p.is_file()
         )
-        if p.is_file()
-    )
+    else:
+        if mode == "validation":
+            member_list = config.second_member
+        elif mode == "testing":
+            member_list = config.remaining_members
+        elif mode == "inference":
+            member_list = config.members # all members
+        else:
+            raise NotImplementedError("mode must be one of ['validation', 'testing', 'inference']")
+
+        if isinstance(member_list, str):
+            member_list = [member_list] # iterable
+
+        files = sorted(
+            p
+            for member in member_list
+            for p in PROCESSED_DATA_DIR.glob(
+                (
+                    f"model_outputs/member_results/"
+                    f"{config.institution_id}/"
+                    f"{config.source_id}/"
+                    f"{config.cmip_experiment_id}/"
+                    f"{member}/"
+                    f"{config.variable_setname}/"
+                    f"{model_key}/*"
+                )
+            )
+            if p.is_file()
+        )
 
     print(f"Found {len(files)} parquet files")
     for f in files:
