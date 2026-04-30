@@ -206,34 +206,46 @@ def load_or_aggregate_results(
     )
 
 def add_grid_weights(ds, grid):
-    """Add grid weights to an xr.Dataset
-    only implemented for CESM2-WACCM6_0.9x1.25 grid
+    """Add grid weights to an xr.Dataset.
+
+    Currently implemented only for CESM2-WACCM6_0.9x1.25.
+    also works when ds is a latitude subset of that grid.
     """
 
-    if grid != 'CESM2-WACCM6_0.9x1.25':
-        raise NotImplementedError("sorry! only CESM2-WACCM6_0.9x1.25 grid accepted")
+    if grid != "CESM2-WACCM6_0.9x1.25":
+        raise NotImplementedError(
+            "sorry!! only CESM2-WACCM6_0.9x1.25 grid accepted"
+        )
 
-    # open raw gridweight data (saved in ExtData)
     gw_path = INTERIM_DATA_DIR / "NCAR/inputdata/gw/gw_CESM2-WACCM6_0.9x1.25.nc"
-    gw_ds = xr.open_dataset(gw_path, engine='netcdf4')
+    gw_ds = xr.open_dataset(gw_path, engine="netcdf4")
     gw = gw_ds["gw"]
 
     lat_ds = ds["lat"]
     lat_gw = gw["lat"]
 
-    # fast path: exact coordinate match
+    # Case 1: exact match
     if lat_ds.equals(lat_gw):
         return ds.assign(gw=gw)
 
-    # safe index-align if grids are effectively identical
-    if (lat_ds.size == lat_gw.size) and np.allclose(lat_ds.values, lat_gw.values, rtol=0, atol=1e-7):
-        gw = gw.assign_coords(lat=lat_ds)
-        return ds.assign(gw=gw)
+    # Case 2: ds is a subset / reordered version of the same grid,
+    # but coords may differ by tiny float noise
+    try:
+        gw_subset = gw.sel(lat=lat_ds, method="nearest", tolerance=1e-6)
+    except KeyError:
+        raise ValueError(
+            "Latitude coordinates in ds could not be matched to gw grid "
+            "within tolerance."
+        )
 
-    # raise error if real mismatch
-    raise ValueError("Latitude coordinates do not match! refusing to assign gw.")
+    # Reattach ds lat coordinates exactly, so downstream equality checks work
+    gw_subset = gw_subset.assign_coords(lat=lat_ds)
 
-    return ds
+    # Final safety check
+    if gw_subset.sizes["lat"] != lat_ds.size:
+        raise ValueError("Failed to align grid weights to ds lat dimension.")
+
+    return ds.assign(gw=gw_subset)
 
 def add_population_density(ds):
     pop_path = INTERIM_DATA_DIR / "GPWv4/gpw_v4_population_density_rev11_2015_192_288.nc"
