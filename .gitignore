@@ -4,9 +4,10 @@ RIVR_dump
 # Data
 data
 
-# Exploratory notebooks
+# Exploratory notebooks and figures
 notebooks/exploratory/
 figures/exploratory/
+figures/paper/
 
 # Bash scripts
 **/*.sh
