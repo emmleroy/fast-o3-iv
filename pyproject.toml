@@ -59,3 +59,8 @@ extend-select = ["I"]
 [tool.ruff.lint.isort]
 known-first-party = ["fast_o3_iv"]
 force-sort-within-sections = true
+
+[dependency-groups]
+dev = [
+    "ipykernel (>=7.3.0,<8.0.0)"
+]
