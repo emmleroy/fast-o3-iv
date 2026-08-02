@@ -1,3 +1,9 @@
+"""run_calc_mda8.py
+
+Script to pre-process hourly surface ozone files and produce monthly means of MDA8 O3.
+
+"""
+
 import argparse
 
 from fast_o3_iv.preprocess.calc_mda8 import ProcessMDA8O3
