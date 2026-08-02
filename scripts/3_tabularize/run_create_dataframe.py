@@ -10,8 +10,8 @@ parser.add_argument("-v", "--var_setname", required=True)
 args = parser.parse_args()
 
 model = args.model                  # CESM2-WACCM6
-scenario = args.scenario            # historical
-var_setname = args.var_setname          # [CO,NOx]_em_openburning, [CO,NOx]_em_anthro
+scenario = args.scenario            # historical, ssp370
+var_setname = args.var_setname      # setC
 
 year_range = range(1975,2015) if args.scenario == "historical" else range(2015,2055)
 
