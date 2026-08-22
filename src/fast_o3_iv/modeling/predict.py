@@ -16,8 +16,17 @@ set_config(transform_output="pandas")
 
 
 class PredictPipeline(TrainPipeline):
-    def __init__(self, model_key, train_config: DatasetConfig, predict_config: DatasetConfig, is_test=False):
+
+    def __init__(
+        self,
+        model_key,
+        train_config: DatasetConfig,
+        predict_config: DatasetConfig,
+        is_test=False,
+    ):
         super().__init__(model_key=model_key, config=train_config, is_test=is_test)
+
+
         self.train_config = train_config
         self.predict_config = predict_config
         self.validation_member = self.train_config.second_member
@@ -50,11 +59,6 @@ class PredictPipeline(TrainPipeline):
         file_path = (
             PROCESSED_DATA_DIR
             / "model_inputs"
-            / cfg.institution_id
-            / cfg.source_id
-            / cfg.cmip_experiment_id
-            / member
-            / cfg.variable_setname
             / file_name
         )
         return file_path
@@ -73,23 +77,16 @@ class PredictPipeline(TrainPipeline):
         file_name = (
             f"{pred_cfg.institution_id}."
             f"{pred_cfg.source_id}."
-            f"{pred_cfg.cmip_experiment_id}."
             f"{member}."
+            f"{pred_cfg.cmip_experiment_id}."
             f"{pred_cfg.variable_setname}."
-            f"{pred_cfg.year_range[0]}-{pred_cfg.year_range[-1]}."
             f"{self.model_key}.parquet"
             #f"trained-on-{train_cfg.source_id}-{train_cfg.cmip_experiment_id}{suffix}.parquet" # option if we start mixing train/predict scenarios or models
         )
         file_path = (
             PROCESSED_DATA_DIR
             / "model_outputs"
-            / "member_results"
-            / pred_cfg.institution_id
-            / pred_cfg.source_id
-            / pred_cfg.cmip_experiment_id
-            / member
-            / pred_cfg.variable_setname
-            / f"{self.model_key}"
+            / f"{self.mode}"
             / file_name
         )
         return file_path
