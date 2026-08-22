@@ -1,11 +1,71 @@
-# six metrics to evaluate the surrogate ensemble
-
-## TO DO: check if we need to de-seasonalize again --> probably not?
-## TO DO: check that masking is working for global_wmean and global_rmse
-
 import xarray as xr
 import numpy as np
+import pandas as pd
 from scipy.stats import wasserstein_distance
+
+from fast_o3_iv import utils
+
+# -----------------------------------------------------------------------
+# Validation metrics: RMSE, MAE, Bias
+
+_LOCAL_ERROR_FUNCS = {
+    "rmse": lambda pred, true: (pred - true) ** 2, # mse, square root taken after mean
+    "mae": lambda pred, true: np.abs(pred - true),
+    "bias": lambda pred, true: pred - true,
+}
+
+def local_metric_time(ds, metric, pred_var, true_var, time_dim="time"):
+    """Compute a local (per-grid-cell) error metric, averaged over time.
+
+    Args:
+        ds: Dataset containing pred_var, true_var, gw, and population_density.
+        metric: One of "rmse", "mae", "bias".
+        pred_var: Name of the predicted variable in ds.
+        true_var: Name of the true/observed variable in ds.
+        time_dim: Name of the time dimension to average over.
+
+    Returns:
+        Dataset with the metric as a data variable, merged with gw and
+        population_density for downstream area-weighting.
+    """
+
+    error_da = _LOCAL_ERROR_FUNCS[metric](ds[pred_var], ds[true_var])
+    metric_da = error_da.mean(dim=time_dim, skipna=True)
+
+    if metric == "rmse":
+        metric_da = np.sqrt(metric_da)
+
+    metric_ds = metric_da.to_dataset(name=metric)
+    return metric_ds.merge(ds[["gw", "population_density"]])
+
+
+def calculate_global_metric(ds, metric, mask=None):
+    da = ds[metric]
+    w = utils.safe_weights(ds, da, mask=mask)
+    area_wmean = da.weighted(w).mean(utils.SPATIAL_DIMS)
+    area_wmean_ds = area_wmean.to_dataset(name=metric)
+    area_wmean_ds.attrs.update({"metric": f"global area-weighted mean of local {metric}"})
+    return area_wmean_ds[metric].values
+
+
+def calculate_global_wmean_of_local_metric(df, metric, only_populated_grid_cells=True):
+    df = df.copy()
+    df["time"] = pd.PeriodIndex(year=df["year"], month=df["month"], freq="M").to_timestamp()
+
+    # to do: find why 'member' is not in validation dfs
+    ds = df.set_index(["lat", "lon", "time"]).to_xarray()
+    ds = utils.add_aux_data(ds)
+
+    mask = utils.pop_mask(ds) if only_populated_grid_cells else None
+
+    local_metric_ds = local_metric_time(ds, metric, "val_y_pred", "val_y_true")
+    return calculate_global_metric(local_metric_ds, metric=metric, mask=mask)
+
+# -----------------------------------------------------------------------
+
+
+
+
 
 
 def calc_osdma8(ds0, targets=False):
@@ -81,13 +141,13 @@ def calc_ensemble_mean_trend(ds, deg=1):
     else:
         raise NotImplementedError
 
-    # trend - note!! ds_temp is necesssary because otherwise slope is per nanosecond
+    # trend - note!! ds_tmp is necesssary because otherwise slope is per nanosecond
     t_years = (ds_annmean['time'].dt.year
             - ds_annmean['time'].dt.year[0]) # get year index
-    ds_temp = ds_annmean.assign_coords(time=t_years) # temporary data
+    ds_tmp = ds_annmean.assign_coords(time=t_years) # temporary data
     
     polynomial_fit = (
-        ds_temp
+        ds_tmp
         .polyfit(dim='time', deg=deg) 
         )
     slope = polynomial_fit.sel(degree=deg, drop=True) # slope of the polynomial fit = trend
