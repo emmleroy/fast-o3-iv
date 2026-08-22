@@ -1,7 +1,7 @@
 import xarray as xr
 import numpy as np
-import pandas as pd
-from scipy.stats import wasserstein_distance
+#import pandas as pd
+#from scipy.stats import wasserstein_distance
 
 from fast_o3_iv import utils
 
@@ -14,19 +14,8 @@ _LOCAL_ERROR_FUNCS = {
     "bias": lambda pred, true: pred - true,
 }
 
-def local_metric_time(ds, metric, pred_var, true_var, time_dim="time"):
+def _local_metric_time(ds, metric, pred_var, true_var, time_dim="time"):
     """Compute a local (per-grid-cell) error metric, averaged over time.
-
-    Args:
-        ds: Dataset containing pred_var, true_var, gw, and population_density.
-        metric: One of "rmse", "mae", "bias".
-        pred_var: Name of the predicted variable in ds.
-        true_var: Name of the true/observed variable in ds.
-        time_dim: Name of the time dimension to average over.
-
-    Returns:
-        Dataset with the metric as a data variable, merged with gw and
-        population_density for downstream area-weighting.
     """
 
     error_da = _LOCAL_ERROR_FUNCS[metric](ds[pred_var], ds[true_var])
@@ -39,7 +28,9 @@ def local_metric_time(ds, metric, pred_var, true_var, time_dim="time"):
     return metric_ds.merge(ds[["gw", "population_density"]])
 
 
-def calculate_global_metric(ds, metric, mask=None):
+def _area_weighted_mean(ds, metric, mask=None):
+    """Compute the global, area-weighted mean of a local (per-grid-cell) error metric.
+    """
     da = ds[metric]
     w = utils.safe_weights(ds, da, mask=mask)
     area_wmean = da.weighted(w).mean(utils.SPATIAL_DIMS)
@@ -49,17 +40,37 @@ def calculate_global_metric(ds, metric, mask=None):
 
 
 def calculate_global_wmean_of_local_metric(df, metric, only_populated_grid_cells=True):
-    df = df.copy()
-    df["time"] = pd.PeriodIndex(year=df["year"], month=df["month"], freq="M").to_timestamp()
+    """Compute the global area-weighted mean metric directly from a dataframe.
 
-    # to do: find why 'member' is not in validation dfs
-    ds = df.set_index(["lat", "lon", "time"]).to_xarray()
+    Converts df to an xarray Dataset, attaches grid weights
+    and population density, computes the local (per-grid-cell) metric over time from
+    val_y_pred/val_y_true, then reduces it to a single global area-weighted value.
+
+    Args:
+        df: dataframe with lat, lon, year, month, val_y_pred, and
+            val_y_true columns.
+        metric: One of "rmse", "mae", "bias" (see local_metric_time).
+        only_populated_grid_cells: If True, restrict the mean to grid cells above
+            utils.POP_THRESH population density.
+
+    Returns:
+        The scalar global area-weighted mean metric as a numpy array.
+    """
+
+    # convert dataframe to a dataset
+    ds = utils._df_to_ds(df)
+
+    # add auxilary data (population density and grid weights)
     ds = utils.add_aux_data(ds)
 
+    # grab the population mask if only_populated_grid_cells=True
     mask = utils.pop_mask(ds) if only_populated_grid_cells else None
 
-    local_metric_ds = local_metric_time(ds, metric, "val_y_pred", "val_y_true")
-    return calculate_global_metric(local_metric_ds, metric=metric, mask=mask)
+    # calculate the local metric per grid cell
+    local_metric_ds = _local_metric_time(ds, metric, "val_y_pred", "val_y_true")
+
+    # return the area-weighted mean of the local metric
+    return _area_weighted_mean(local_metric_ds, metric=metric, mask=mask)
 
 # -----------------------------------------------------------------------
 
