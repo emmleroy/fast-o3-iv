@@ -22,7 +22,7 @@ Fast surrogate modeling of ozone internal variability
 ├── models/                  <- Path to trained models
 ├── pyproject.toml           <- Project configuration file
 ├── figures                  <- Generated figures
-│   ├── JAMES/         
+│   └── JAMES/         
 ├── requirements.txt         <- The requirements file for reproducing the analysis environment, e.g.
 │                               generated with `pip freeze > requirements.txt`
 ├── tests/                  
