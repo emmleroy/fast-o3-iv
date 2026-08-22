@@ -97,37 +97,4 @@ STATMODEL_REGISTRY = {
         "scaler": RobustScaler(),
         "param_grid": None,
     },
-    "GPR-local-two-standard": {
-        "model_obj": GaussianProcessRegressor(
-            kernel=two_scale_kernel(num_features_post_transform=19), # note!! hard coded 18+1
-            normalize_y=True,
-            n_restarts_optimizer=0,
-            random_state=42,
-            alpha=1e-10,
-        ),
-        "scaler": StandardScaler(with_mean=True, with_std=True),
-        "param_grid": None,
-    },
-    "GPR-local-single-robust": {
-        "model_obj": GaussianProcessRegressor(
-            kernel=single_scale_kernel(num_features_post_transform=19), # note!! hard coded 18+1
-            normalize_y=True,
-            n_restarts_optimizer=2,
-            random_state=42,
-            alpha=1e-10,
-        ),
-        "scaler": RobustScaler(),
-        "param_grid": None,
-    },
-    "GPR-local-single-standard": {
-        "model_obj": GaussianProcessRegressor(
-            kernel=single_scale_kernel(num_features_post_transform=19), # note!! hard coded 18+1
-            normalize_y=True,
-            n_restarts_optimizer=2,
-            random_state=42,
-            alpha=1e-10,
-        ),
-        "scaler": StandardScaler(with_mean=True, with_std=True),
-        "param_grid": None,
-    },
 }
