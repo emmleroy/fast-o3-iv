@@ -26,7 +26,7 @@ train_config = DatasetConfig(
     year_range = year_range
 )
 
-predict_config = train_config # validation/testing
+predict_config = train_config # for validation, predict_config is the same as train_config
 
 pipe = PredictPipeline(
     model_key=model_key,
@@ -35,5 +35,5 @@ pipe = PredictPipeline(
     is_test=False
     )
 
-stats_pipeline = pipe.load_model()
+stats_pipeline = pipe.load_model() # validation: predict for the validation_member only
 pipe.predict_and_save_results(pipe.validation_member, stats_pipeline, save=True)
