@@ -21,11 +21,16 @@ def set_matplotlib_font(font_family):
     plt.rcParams['font.family'] = font_family
     plt.rcParams.update({'mathtext.default': 'regular'})
 
-def _df_to_ds(df):
+def _df_to_ds(df, extra_index_cols=None):
     """Convert a pandas dataframe to an xarray dataset
-    
+
     Also assumes the dataframe has a "year" and "month" column
     and converts that into a "time" column.
+
+    Args:
+        df: dataframe with lat, lon, year, month columns (plus data columns).
+        extra_index_cols: optional list of additional columns to include in
+            the index alongside lat, lon, time (e.g. ["ensemble_member"]).
     """
     df = df.copy()
     df["time"] = pd.to_datetime(
@@ -34,9 +39,11 @@ def _df_to_ds(df):
         cache=True,
     )
 
+    index_cols = ["lat", "lon", "time"] + (extra_index_cols or [])
+
     ds = (
         df.drop(columns=["year", "month"])
-        .set_index(["lat", "lon", "time"])
+        .set_index(index_cols)
         .to_xarray()
     )
 
