@@ -253,6 +253,21 @@ def summarize_global_metrics(metric_dsets, only_populated_grid_cells=True):
     return metrics_summary
 
 
+def get_spatial_pattern_of_metrics(df):
+    """Return a spatial pattern of the test metrics.
+
+    Convert df to xarray Dataset, attach grid weights and population density, compute each local
+    (per-grid-cell) test metric.
+
+    """
+    ds = utils._df_to_ds(df, extra_index_cols=["ensemble_member"])
+    ds = utils.add_aux_data(ds)
+
+    local_metric_dsets = compute_local_metric_fields(ds)
+    
+    return local_metric_dsets
+
+
 def calculate_global_test_metrics(df, only_populated_grid_cells=True):
     """Compute all global area-weighted test metrics directly from a dataframe.
 
@@ -261,10 +276,8 @@ def calculate_global_test_metrics(df, only_populated_grid_cells=True):
     single global area-weighted value.
 
     """
-    ds = utils._df_to_ds(df, extra_index_cols=["ensemble_member"])
-    ds = utils.add_aux_data(ds)
 
-    local_metric_dsets = compute_local_metric_fields(ds)
+    local_metric_dsets = get_spatial_pattern_of_metrics(df, only_populated_grid_cells=True)
     return summarize_global_metrics(local_metric_dsets, only_populated_grid_cells=only_populated_grid_cells)
 
 
