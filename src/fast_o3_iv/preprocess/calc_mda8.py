@@ -190,7 +190,7 @@ class ProcessMDA8O3:
         ds.to_netcdf(outfile)
         print(f"Saved {year_or_year_group} -> {outfile}", flush=True)
 
-    @staticmethod # a static method is bound to the class, but doesn't modify the class state
+    @staticmethod
     def _concat(yearly):
         return xr.concat(yearly, dim="time").sortby("time")
 
