@@ -1,3 +1,9 @@
+"""run_process_met.py
+
+Script to pre-process met variables (Z3, TS, U, V, etc..)
+
+"""
+
 import argparse
 
 from fast_o3_iv.preprocess.process_met_data import ProcessMetData

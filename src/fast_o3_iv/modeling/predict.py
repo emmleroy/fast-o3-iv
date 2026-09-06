@@ -66,12 +66,12 @@ class PredictPipeline(TrainPipeline):
     def _get_output_df_filepath(self, member):
         """Filepath to save model_outputs to
         """
-        if self.is_test:
-            suffix = ".TEST"
-        else:
-            suffix = ""
+        #if self.is_test:
+        #    suffix = ".TEST"
+        #else:
+        #    suffix = ""
 
-        train_cfg = self.train_config
+        #train_cfg = self.train_config
         pred_cfg = self.predict_config
         
         file_name = (

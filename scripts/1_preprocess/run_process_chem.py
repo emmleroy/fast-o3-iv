@@ -1,3 +1,11 @@
+"""run_process_chem.py
+
+Script to pre-process chem variables (CO_em_openburning, CO_em_anthro, 
+NOx_em_openburning, NOx_em_anthro and mole_fraction_of_methane_in_air) 
+from input4CMIPs/input4CMIPs-cesm.
+
+"""
+
 import argparse
 
 from fast_o3_iv.preprocess.process_chem_data import ProcessChemData
