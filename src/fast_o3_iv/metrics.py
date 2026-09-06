@@ -28,12 +28,10 @@ def _local_metric_time(ds, metric, pred_var, true_var, time_dim="time"):
     return metric_ds.merge(ds[["gw", "population_density"]])
 
 
-def _area_weighted_mean(ds, metric, mask=None):
+def _area_weighted_mean_of_local_metric(ds, metric, mask=None):
     """Compute the global, area-weighted mean of a local (per-grid-cell) error metric.
     """
-    da = ds[metric]
-    w = utils.safe_weights(ds, da, mask=mask)
-    area_wmean = da.weighted(w).mean(utils.SPATIAL_DIMS)
+    area_wmean = utils.area_weighted_mean(ds, metric, mask)
     area_wmean_ds = area_wmean.to_dataset(name=metric)
     area_wmean_ds.attrs.update({"metric": f"global area-weighted mean of local {metric}"})
     return area_wmean_ds[metric].values
@@ -70,7 +68,7 @@ def calculate_global_wmean_of_local_metric(df, metric, only_populated_grid_cells
     local_metric_ds = _local_metric_time(ds, metric, "val_y_pred", "val_y_true")
 
     # return the area-weighted mean of the local metric
-    return _area_weighted_mean(local_metric_ds, metric=metric, mask=mask)
+    return _area_weighted_mean_of_local_metric(local_metric_ds, metric=metric, mask=mask)
 
 # -----------------------------------------------------------------------
 # Test metrics: 
@@ -227,13 +225,6 @@ def global_rmse(ds, pred_var, true_var, mask=None):
     w = utils.safe_weights(ds, pred, mask=mask)
     mse = ((pred - true) ** 2).weighted(w).mean(utils.SPATIAL_DIMS)
     return np.sqrt(mse)
-
-
-def global_wmean(ds, var, mask=None):
-    """calculate the global area-weighted mean of a statistic"""
-    da = ds[var]
-    w = utils.safe_weights(ds, da, mask=mask)
-    return da.weighted(w).mean(utils.SPATIAL_DIMS)
 
 
 def summarize_global_metrics(metric_dsets, only_populated_grid_cells=True):

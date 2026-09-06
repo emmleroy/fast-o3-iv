@@ -135,88 +135,87 @@ def safe_weights(ds, like, mask):
     return a weights dataset where values are zero where a given mask is False
     and where values are zero where the data are missing
     """
+
+    # 'gw' is lat-only so we broadcast to a similar array
     w = ds["gw"].broadcast_like(like)
 
     if mask is not None:
+
+        # set weights outside the mask to zero, if a mask exists
         w = w.where(mask, 0)
+
     # also exclude where the data are missing
     w = w.where(like.notnull(), 0)
 
+    # fill any other nans in the gws to zero
     return w.fillna(0)
+
+def area_weighted_mean(ds, var, spatial_dims=SPATIAL_DIMS, mask=None):
+    """calculate the area weighted mean of variable 'var' in dataset 'ds' 
+       with or without a mask"""
+    da = ds[var]
+    w = safe_weights(ds, da, mask=mask)
+    return da.weighted(w).mean(spatial_dims)
+
 
 ###############################################
 
 
 
-def has_expected_data(path, expected_timesteps):
-    try:
-        with xr.open_dataset(path, engine="netcdf4", decode_cf=False) as ds:
-            if ds.sizes.get("time") != expected_timesteps:
-                return False
-            if len(ds.data_vars) == 0:
-                return False
-            return True
-    except Exception:
-        return False
+#def has_expected_data(path, expected_timesteps):
+#    try:
+#        with xr.open_dataset(path, engine="netcdf4", decode_cf=False) as ds:
+#            if ds.sizes.get("time") != expected_timesteps:
+#                return False
+#            if len(ds.data_vars) == 0:
+#                return False
+#            return True
+#    except Exception:
+#        return False
 
-def exists(path):
-    return os.path.exists(path) and os.path.getsize(path) > 0
-
-
+#def exists(path):
+#    return os.path.exists(path) and os.path.getsize(path) > 0
 
 
-def get_mda8o3_climatology(
-        config,
-    ):
+
+
+#def get_mda8o3_climatology(
+#        config,
+#    ):
     
-    path = (
-        INTERIM_DATA_DIR 
-        / config.institution_id
-        / config.source_id
-        / config.cmip_experiment_id
-        / config.first_member
-        / 'mda8o3'
-    )
-    file_name = (
-            f"{config.institution_id}."
-            f"{config.source_id}."
-            f"{config.cmip_experiment_id}."
-            f"{config.first_member}."
-            "mda8o3."
-            f"{config.year_range[0]}-{config.year_range[-1]}.nc"
-        )
-    ds = xr.open_dataset(path / file_name)
-    ref_period = (ds['mda8o3']*1e9).sel(
-            time=slice(f"{str(config.year_range[0])}-01-01", 
-            f"{str(config.year_range[0]+9)}-12-31")).load()
+#    path = (
+#        INTERIM_DATA_DIR 
+#        / config.institution_id
+#        / config.source_id
+#        / config.cmip_experiment_id
+#        / config.first_member
+#        / 'mda8o3'
+#    )
+#    file_name = (
+#            f"{config.institution_id}."
+#            f"{config.source_id}."
+#            f"{config.cmip_experiment_id}."
+#            f"{config.first_member}."
+#            "mda8o3."
+#            f"{config.year_range[0]}-{config.year_range[-1]}.nc"
+#        )
+#    ds = xr.open_dataset(path / file_name)
+#    ref_period = (ds['mda8o3']*1e9).sel(
+#            time=slice(f"{str(config.year_range[0])}-01-01", 
+#            f"{str(config.year_range[0]+9)}-12-31")).load()#
 
-    ref_monthly_clm = ref_period.groupby("time.month").mean("time")
-    ref_monthly_clm.attrs["units"] = "ppbv"
-    return ref_monthly_clm
+#    ref_monthly_clm = ref_period.groupby("time.month").mean("time")
+#    ref_monthly_clm.attrs["units"] = "ppbv"
+#    return ref_monthly_clm
 
-def add_mda8o3_climatology(ds0, train_config):
-    clm = get_mda8o3_climatology(train_config)
+#def add_mda8o3_climatology(ds0, train_config):
+#    clm = get_mda8o3_climatology(train_config)
 
-    assert clm.sizes["lat"] == ds0.sizes["lat"]
-    assert clm.sizes["lon"] == ds0.sizes["lon"]
+#    assert clm.sizes["lat"] == ds0.sizes["lat"]
+#    assert clm.sizes["lon"] == ds0.sizes["lon"]
 
-    clm2 = clm.assign_coords(lat=ds0.lat, lon=ds0.lon)
-    ds0_clm = ds0.groupby("time.month") + clm2
+#    clm2 = clm.assign_coords(lat=ds0.lat, lon=ds0.lon)
+#    ds0_clm = ds0.groupby("time.month") + clm2
 
-    return ds0_clm
+#    return ds0_clm
 
-def global_wmean(ds, var, spatial_dims=("lat", "lon"), mask=None):
-    da = ds[var]
-    w = ds["gw"].fillna(0)
-
-    if mask is not None:
-        if isinstance(mask, str):
-            mask = ds[mask]
-
-        # turn mask-like data into boolean
-        mask = mask.fillna(0) > 0
-
-        da = da.where(mask)
-        w = w.where(mask, 0)
-
-    return da.weighted(w).mean(spatial_dims)
