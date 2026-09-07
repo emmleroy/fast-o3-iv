@@ -31,6 +31,10 @@ def load_results(model_key, results_type):
         df = pd.read_parquet(file_path)
         df["model_key"] = model_key
         df["ensemble_member"] = ensemble_member
+
+        if results_type == "inference" and model_key == "GPR-local":
+            if "gp_mean" in df.columns:  # undo renaming if gpr_r was already added
+                df["val_y_pred"] = df["gp_mean"]
         dfs.append(df)
 
     return pd.concat(dfs, ignore_index=True)
