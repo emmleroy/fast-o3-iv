@@ -201,22 +201,35 @@ def calc_emd_to_noise(ds0):
     return xr.Dataset({"emd_to_noise": emd / true_internal_std})
 
 
-def compute_local_metric_fields(base_ds):
-    """dictionary returning xr.Datasets for each local metric (on lat/lon grid),
+def compute_local_metric_fields(
+    base_ds,
+    metrics=[
+        "ens_clim",
+        "ens_trend",
+        "resid_sd",
+        "resid_q90",
+        "pgt_q90",
+        "emd_to_noise",
+    ],
+):
+    """return xr.Datasets for the requested local metrics,
     with gw + population_density merged back on for downstream masking.
     """
     aux = base_ds[["gw", "population_density"]]
 
-    fields = {
-        "ens_clim": calc_ensemble_mean_clim(base_ds),
-        "ens_trend": calc_ensemble_mean_trend(base_ds),
-        "resid_sd": calc_resid_standard_deviation(base_ds),
-        "resid_q90": calc_resid_q90(base_ds),
-        "pgt_q90": calc_prob_exceed_true_q90(base_ds),
-        "emd_to_noise": calc_emd_to_noise(base_ds),
+    metric_funcs = {
+        "ens_clim": calc_ensemble_mean_clim,
+        "ens_trend": calc_ensemble_mean_trend,
+        "resid_sd": calc_resid_standard_deviation,
+        "resid_q90": calc_resid_q90,
+        "pgt_q90": calc_prob_exceed_true_q90,
+        "emd_to_noise": calc_emd_to_noise,
     }
 
-    return {name: ds.merge(aux) for name, ds in fields.items()}
+    return {
+        name: metric_funcs[name](base_ds).merge(aux)
+        for name in metrics
+    }
 
 
 def global_rmse(ds, pred_var, true_var, mask=None):
@@ -244,7 +257,17 @@ def summarize_global_metrics(metric_dsets, only_populated_grid_cells=True):
     return metrics_summary
 
 
-def get_spatial_pattern_of_metrics(df):
+def get_spatial_pattern_of_metrics(
+        df,
+        metrics=[
+            "ens_clim",
+            "ens_trend",
+            "resid_sd",
+            "resid_q90",
+            "pgt_q90",
+            "emd_to_noise",
+        ],
+    ):
     """Return a spatial pattern of the test metrics.
 
     Convert df to xarray Dataset, attach grid weights and population density, compute each local
@@ -254,7 +277,7 @@ def get_spatial_pattern_of_metrics(df):
     ds = utils._df_to_ds(df, extra_index_cols=["ensemble_member"])
     ds = utils.add_aux_data(ds)
 
-    local_metric_dsets = compute_local_metric_fields(ds)
+    local_metric_dsets = compute_local_metric_fields(ds, metrics)
     
     return local_metric_dsets
 
