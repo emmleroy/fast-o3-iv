@@ -15,6 +15,26 @@ from fast_o3_iv.preprocess.model_configs import MODEL_CONFIG
 POP_THRESH = 1.0 # 1 person/km2
 SPATIAL_DIMS = ("lat", "lon")
 
+def load_results(model_key, results_type):
+    """Load and concatenate all results for a given model_key and results_type.
+
+    results_type should be one of "testing", "inference" or "validation"
+    """
+    results_dir = PROCESSED_DATA_DIR / "model_outputs" / results_type
+    matching_files = sorted(results_dir.glob(f"*.{model_key}.parquet"))
+
+    dfs = []
+    for file_path in matching_files:
+        parts = file_path.stem.split(".")
+        ensemble_member = ".".join(parts[2:4])  # e.g. "wa6_ic3.002"
+
+        df = pd.read_parquet(file_path)
+        df["model_key"] = model_key
+        df["ensemble_member"] = ensemble_member
+        dfs.append(df)
+
+    return pd.concat(dfs, ignore_index=True)
+
 def set_matplotlib_font(font_family):
     """Set the matplotlib font family."""
     #assert font_family in supported_fonts, f'Font {font_family} not supported.'
@@ -156,6 +176,7 @@ def area_weighted_mean(ds, var, spatial_dims=SPATIAL_DIMS, mask=None):
     da = ds[var]
     w = safe_weights(ds, da, mask=mask)
     return da.weighted(w).mean(spatial_dims)
+
 
 
 ###############################################

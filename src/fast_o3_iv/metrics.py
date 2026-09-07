@@ -237,7 +237,7 @@ def summarize_global_metrics(metric_dsets, only_populated_grid_cells=True):
         if kind == "rmse":
             metrics_summary[name] = global_rmse(ds_metric, a, b, mask=mask)
         elif kind == "wmean":
-            metrics_summary[name] = global_wmean(ds_metric, a, mask=mask)
+            metrics_summary[name] = utils.area_weighted_mean(ds_metric, a, mask=mask)
         else:
             raise ValueError(f"Unknown summary kind: {kind}")
 
@@ -268,12 +268,11 @@ def calculate_global_test_metrics(df, only_populated_grid_cells=True):
 
     """
 
-    local_metric_dsets = get_spatial_pattern_of_metrics(df, only_populated_grid_cells=True)
+    local_metric_dsets = get_spatial_pattern_of_metrics(df)
     return summarize_global_metrics(local_metric_dsets, only_populated_grid_cells=only_populated_grid_cells)
 
 
-# 
-def calc_osdma8(ds0, targets=False):
+def calc_osdma8(da):
     """
     from monthly-mda mda8 o3 in units of ppbv, calculate osdma8 
     
@@ -286,15 +285,11 @@ def calc_osdma8(ds0, targets=False):
     the Southern Hemisphere summer.
     """
 
-    ds = ds0.copy(deep=True)
-    if targets:
-        rolled_vars = ['val_y_true']
-    else:
-        rolled_vars = ['val_y_pred'] + (['val_y_true'] if 'val_y_true' in ds.data_vars else [])
+    da = da.copy(deep=True)
 
-    rolled_6mo_end_labeled = ds[rolled_vars].rolling(time=6, min_periods=6).mean()
+    rolled_6mo_end_labeled = da.rolling(time=6, min_periods=6).mean()
     rolled_6mo_valid = rolled_6mo_end_labeled.isel(time=slice(5, None))
-    window_start_time = ds["time"].isel(time=slice(None, -5))
+    window_start_time = da["time"].isel(time=slice(None, -5))
     rolled_6mo_start_labeled = rolled_6mo_valid.assign_coords(time=window_start_time)
 
     # keep only windows starting Jan..Oct
