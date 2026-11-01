@@ -6,38 +6,11 @@
 
 Fast surrogate modeling of ozone internal variability
 
-## Project Organization
+This repository contains the code used to produce figures for the main text of:
 
-```
-├── LICENSE                  
-├── Makefile                 
-├── README.md                
-├── scripts/            
-├── data/
-│   ├── external/            <- Raw, immutable data (climate model output from cmip6 or cesm)
-│   ├── interim/             <- Pre-processed climate model output (netcdf4 files)
-│   └── processed/           <- The final, canonical data sets for modeling (parquet files)
-│       ├── model_inputs/
-|       └── model_outputs/
-├── models/                  <- Path to trained models
-├── pyproject.toml           <- Project configuration file
-├── figures                  <- Generated figures
-│   └── JAMES/         
-├── requirements.txt         <- The requirements file for reproducing the analysis environment, e.g.
-│                               generated with `pip freeze > requirements.txt`
-├── tests/                  
-└── src/fast_o3_iv/          <- Source code for use in this project.
-    ├── __init__.py          
-    ├── config.py            <- Store useful variables and configuration
-    ├── metrics.py           <- Helper funcs to calculate performance metrics
-    ├── utils.py             <- Helpful utlity functions
-    ├── preprocess/          <- Code to pre-process model output (data/external -> data/internal) 
-    ├── features/            <- Code to create features (data/interim --> data/interim)
-    ├── tabularize/          <- Code to create dataframes for modeling (data/interim --> data/processed)     
-    └── modeling/               
-        ├── __init__.py 
-        ├── predict.py       <- Code to run model inference with trained models          
-        └── train.py         <- Code to train models
+Le Roy, E. J., Balamurugan, V., Chen, J., Selin, N.E., A machine learning framework to efficiently create surface ozone ensembles from chemistry-climate models. Submitted to JAMES.
+
+Please cite this reference when using this code.
     
 ```
 
