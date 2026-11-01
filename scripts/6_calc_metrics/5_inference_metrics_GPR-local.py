@@ -54,7 +54,6 @@ val_y_pred  = align_to_ref(ds_metrics['ens_clim']['val_y_pred'])
 clim_pred = val_y_pred + clm_aligned * 1e9
 sd_pred = align_to_ref(ds_metrics['resid_sd']['val_y_pred'])
 
-
 # median extrapolation risk score + frequency where gpr_r > 0.75
 risk_median = (ds_risk["gp_r"]).median(dim=["time", "ensemble_member"])
 risk_frequency = (ds_risk["gp_r"] > 0.75).mean(dim=["time", "ensemble_member"])*100
