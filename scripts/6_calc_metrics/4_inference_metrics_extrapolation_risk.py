@@ -57,7 +57,7 @@ def gp_r_from_pipeline(pipeline, X_df):
     prior_var_y = prior_var_norm * (np.asarray(ystd) ** 2)
 
     # r should be between [0,1] --> clip for numerical effects
-    r = post_var_y / np.maximum(prior_var_y, eps=1e-12)
+    r = post_var_y / np.maximum(prior_var_y, 1e-12)
     r = np.clip(r, 0.0, 1.0)
 
     # return the mean prediction and the extrapolation risk score
@@ -108,10 +108,23 @@ def add_gp_r_for_all_cells_parallel(
 
 # load prediction results
 MODEL_KEY = "GPR-local"
-df = utils.load_results(MODEL_KEY, "inference")
+#df = utils.load_results(MODEL_KEY, "inference") # old version loaded results but new results only have y_pred
+
+# load inference inputs
+input_path = (
+    PROCESSED_DATA_DIR
+    / "model_inputs"
+    / f"NCAR.CESM2.{args.member}.historical.setL.inputs.parquet"
+)
+
+df = pd.read_parquet(input_path)
 
 # load model object
 path = PROCESSED_DATA_DIR / "models" / "NCAR.CESM2-WACCM6.wa6_ic1.001.historical.setL.GPR-local.joblib"
+
+# need to import src from old version of the code -- TO DO: fix this so import names are consistent
+import sys
+sys.path.insert(0, "/home/eleroy/proj-dirs/fast-o3-iv/RIVR_dump")
 model = joblib.load(path) 
 
 # add GPR extrapolation risk (`gpr_r`)
