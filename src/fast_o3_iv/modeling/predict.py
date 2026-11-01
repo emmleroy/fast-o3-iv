@@ -40,29 +40,6 @@ class PredictPipeline(TrainPipeline):
 
         return model_object
 
-    def _get_df_filepath(self, member):
-        """Override inherited _get_df_filepath from TrainPipeline with 
-        cfg = self.predict_config 
-
-        note: this is for input dfs
-        """
-        cfg = self.predict_config
-        file_name = (
-            f"{cfg.institution_id}."
-            f"{cfg.source_id}."
-            f"{cfg.cmip_experiment_id}."
-            f"{member}."
-            f"{cfg.variable_setname}."
-            "model_inputs."
-            f"{cfg.year_range[0]}-{cfg.year_range[-1]}.parquet"
-        )
-        file_path = (
-            PROCESSED_DATA_DIR
-            / "model_inputs"
-            / file_name
-        )
-        return file_path
-
     def _get_output_df_filepath(self, member):
         """Filepath to save model_outputs to
         """
@@ -177,7 +154,8 @@ class PredictPipeline(TrainPipeline):
             groups = df.groupby(["lat", "lon"], sort=False)
 
             tasks = [
-                (key, group.copy(deep=False), pipeline[key]) for key, group in groups
+                (key, group.copy(deep=False), pipeline[key]["pipeline"])
+                for key, group in groups
             ]
 
             # use Joblib to predict in parallel

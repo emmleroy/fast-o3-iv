@@ -87,20 +87,14 @@ class TrainPipeline:
         file_name = (
             f"{self.config.institution_id}."
             f"{self.config.source_id}."
-            f"{self.config.cmip_experiment_id}."
             f"{member}."
+            f"{self.config.cmip_experiment_id}."
             f"{self.config.variable_setname}."
-            "model_inputs."
-            f"{self.config.year_range[0]}-{self.config.year_range[-1]}.parquet"
+            "inputs.parquet"
         )
         file_path = (
             PROCESSED_DATA_DIR
             / "model_inputs"
-            / self.config.institution_id
-            / self.config.source_id
-            / self.config.cmip_experiment_id
-            / member
-            / self.config.variable_setname
             / file_name
         )
         return file_path
@@ -114,22 +108,12 @@ class TrainPipeline:
         file_name = (
             f"{self.config.institution_id}."
             f"{self.config.source_id}."
-            f"{self.config.cmip_experiment_id}."
             f"{self.training_member}."
+            f"{self.config.cmip_experiment_id}."
             f"{self.config.variable_setname}."
-            "model."
-            f"{self.config.year_range[0]}-{self.config.year_range[-1]}."
             f"{self.model_key}{suffix}.joblib"
         )
-        file_path = (
-            MODELS_DIR
-            / self.config.institution_id
-            / self.config.source_id
-            / self.config.cmip_experiment_id
-            / self.training_member
-            / self.config.variable_setname
-            / file_name
-        )
+        file_path = MODELS_DIR / file_name
 
         return file_path
 
