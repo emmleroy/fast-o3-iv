@@ -11,6 +11,3 @@ This repository contains the code used to produce figures for the main text of:
 Le Roy, E. J., Balamurugan, V., Chen, J., Selin, N.E., A machine learning framework to efficiently create surface ozone ensembles from chemistry-climate models. Submitted to JAMES.
 
 Please cite this reference when using this code.
-    
-```
-
