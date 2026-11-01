@@ -13,7 +13,7 @@ PROCESSED_DATA_DIR = DATA_DIR / "processed"
 
 MLFLOW_TRACKING_URI = f"sqlite:///{PROJ_ROOT}/mlflow.db"
 
-MODELS_DIR = PROJ_ROOT / "models"
+MODELS_DIR = PROJ_ROOT / "data/processed/models"
 
 REPORTS_DIR = PROJ_ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
